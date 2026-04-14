@@ -1,0 +1,7 @@
+build/bin
+node_modules
+frontend/dist
+desktop/.env
+desktop/token.json
+frontend/android/app/google-services.json
+frontend/capacitor.config.ts
