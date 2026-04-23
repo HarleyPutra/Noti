@@ -1,0 +1,17 @@
+/* Removes the default borders and padding from Quill so it blends seamlessly into your Tailwind widget */
+.notion-editor .ql-container.ql-bubble {
+  border: none !important;
+  font-family: inherit !important;
+}
+
+.notion-editor .ql-editor {
+  padding: 0 !important;
+  font-size: 1rem;
+  color: #4b5563; /* Tailwind gray-600 */
+}
+
+/* Custom styling for the checklists to match your app */
+.notion-editor .ql-editor li[data-list="check"] > span::before {
+  border-radius: 4px;
+  border-color: #cbd5e1; /* Tailwind slate-300 */
+}
