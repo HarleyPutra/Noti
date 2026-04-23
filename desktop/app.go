@@ -37,6 +37,18 @@ func (a *App) Logout() {
 	auth.Logout()
 }
 
+// ── Dashboard Settings ─────────────────────────────────────────
+
+// SavePresets receives the JSON string from Angular and saves it to SQLite
+func (a *App) SavePresets(presetsJSON string) error {
+	return db.SaveSetting("dashboard_presets", presetsJSON)
+}
+
+// LoadPresets reads the JSON string from SQLite and sends it back to Angular
+func (a *App) LoadPresets() (string, error) {
+	return db.GetSetting("dashboard_presets")
+}
+
 // ── Todos ─────────────────────────────────────────
 
 func (a *App) GetTodos(userID string) ([]models.Todo, error) {

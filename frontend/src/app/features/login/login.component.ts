@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -10,19 +10,29 @@ import { AuthService } from '../../core/services/auth.service';
   templateUrl: './login.component.html'
 })
 export class LoginComponent {
+  private auth = inject(AuthService);
+  private router = inject(Router);
+
   loading = false;
   error = '';
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor() {
+    effect(() => {
+      if (this.auth.currentUser()) {
+        this.router.navigate(['/dashboard']);
+      }
+    });
+  }
 
   async login() {
-    this.loading = true;
-    this.error = '';
     try {
+      this.loading = true;
+      this.error = '';
+      
       await this.auth.login();
-      this.router.navigate(['/todos']);
-    } catch (e: any) {
-      this.error = 'Login failed. Please try again.';
+      
+    } catch (err: any) {
+      this.error = err.message || 'Failed to login';
     } finally {
       this.loading = false;
     }

@@ -48,13 +48,19 @@ export class DashboardComponent implements OnInit {
   activePresetId: string = '';
 
   ngOnInit() {
-    this.options = {
-      draggable: { enabled: true },
+  this.options = {
+      draggable: { 
+        enabled: true,
+        dragHandleClass: 'drag-handler', // Tells Gridster: ONLY drag elements with this specific class!
+        ignoreContent: true              // Adds an extra layer of protection for your click events
+      },
       resizable: { enabled: true },
       pushItems: true,
       gridType: 'fit',
-      minCols: 10,
-      minRows: 10,
+      minCols: 8,
+      minRows: 8,
+      margin: 16,
+      outerMargin: true,
     };
 
     // Initialize layouts with explicit IDs for the tracker

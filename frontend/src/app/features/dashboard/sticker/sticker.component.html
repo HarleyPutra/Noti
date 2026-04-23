@@ -11,9 +11,17 @@
         Upload Image
       </button>
 
-      <button (click)="setEmoji('💡')" class="w-full px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-md text-xs font-bold hover:bg-gray-50 transition-colors shadow-sm">
-        Use Emoji
-      </button>
+      <div class="w-full relative">
+        <input 
+          type="text" 
+          #emojiInput
+          maxlength="2"
+          placeholder="Type Emoji 😉"
+          (keyup.enter)="setEmoji(emojiInput.value)"
+          class="w-full px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-md text-xs text-center font-bold shadow-sm focus:outline-none focus:border-blue-400"
+          title="Press Win+. or Cmd+Ctrl+Space to open emoji keyboard"
+        >
+      </div>
     </div>
   </div>
 

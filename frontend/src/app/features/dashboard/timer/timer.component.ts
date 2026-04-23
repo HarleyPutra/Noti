@@ -1,10 +1,11 @@
 import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // <-- ADDED THIS IMPORT!
 
 @Component({
   selector: 'app-timer',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule], // <-- FIXED THE COMMA HERE!
   templateUrl: './timer.component.html'
 })
 export class TimerComponent implements OnDestroy {
@@ -14,6 +15,9 @@ export class TimerComponent implements OnDestroy {
   timeLeft: number = this.DEFAULT_TIME;
   isRunning: boolean = false;
   private timerInterval: any;
+
+  isEditingTime: boolean = false;
+  inputMinutes: number = 25;
 
   // This automatically calculates the MM:SS format whenever timeLeft changes
   get formattedTime(): string {
@@ -25,6 +29,13 @@ export class TimerComponent implements OnDestroy {
   // Helper to add a leading zero (e.g., '9' becomes '09')
   private padZero(num: number): string {
     return num < 10 ? '0' + num : num.toString();
+  }
+
+  saveCustomTime() {
+    if (this.inputMinutes > 0) {
+      this.timeLeft = this.inputMinutes * 60;
+    }
+    this.isEditingTime = false;
   }
 
   toggleTimer() {
@@ -58,7 +69,7 @@ export class TimerComponent implements OnDestroy {
 
   resetTimer() {
     this.pauseTimer();
-    this.timeLeft = this.DEFAULT_TIME;
+    this.timeLeft = this.DEFAULT_TIME; // Note: You might want to change this to this.inputMinutes * 60 if you want it to reset to their custom time!
   }
 
   // CRITICAL: Stop the interval if the widget is destroyed/removed

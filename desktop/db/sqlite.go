@@ -37,6 +37,10 @@ func runMigrations() error {
 			key   TEXT PRIMARY KEY,
 			value TEXT
 		);
+		CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT
+		);
 	`)
 	return err
 }
@@ -155,4 +159,28 @@ func SetLastSyncTime(t int64) {
 		INSERT INTO sync_meta (key,value) VALUES ('last_sync',?)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value
 	`, fmt.Sprintf("%d", t))
+}
+
+// SaveSetting inserts or updates a generic key-value pair
+func SaveSetting(key string, value string) error {
+	query := `
+		INSERT INTO settings (key, value) 
+		VALUES (?, ?) 
+		ON CONFLICT(key) DO UPDATE SET value = ?;
+	`
+	_, err := DB.Exec(query, key, value, value)
+	return err
+}
+
+// GetSetting retrieves a value by its key
+func GetSetting(key string) (string, error) {
+	var value string
+	err := DB.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return value, nil
 }
