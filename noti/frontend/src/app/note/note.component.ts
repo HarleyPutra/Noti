@@ -198,4 +198,13 @@ export class NoteComponent implements OnInit {
     this.showToolbar.set(false);
     this.showSlash.set(false);
   }
+
+  async setMode(mode: 'list' | 'lined' | 'squares' | 'dots' | 'browse') {
+    const n = this.note();
+    if (!n) return;
+    const updated = { ...n, mode };
+    this.note.set(updated);
+    this.showMenu.set(false); // Close menu after clicking
+    await this.noteService.updateNote(updated);
+  }
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"golang.org/x/oauth2"
@@ -24,8 +25,6 @@ var oauthConfig *oauth2.Config
 var CurrentToken *oauth2.Token
 var CurrentUser *UserInfo
 
-const tokenFile = "token.json"
-
 func Init() {
 	oauthConfig = &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -39,9 +38,20 @@ func Init() {
 	}
 }
 
+// getTokenFilePath gets a bulletproof OS-level path for the token
+func getTokenFilePath() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "token.json" // fallback
+	}
+	appDir := filepath.Join(configDir, "noti")
+	os.MkdirAll(appDir, 0755)
+	return filepath.Join(appDir, "token.json")
+}
+
 func Login() (*UserInfo, error) {
 	codeCh := make(chan string, 1)
-	errCh  := make(chan error, 1)
+	errCh := make(chan error, 1)
 
 	mux := http.NewServeMux()
 	srv := &http.Server{Addr: ":8085", Handler: mux}
@@ -77,18 +87,19 @@ func Login() (*UserInfo, error) {
 		return nil, err
 	}
 	CurrentToken = token
-	saveToken(token)
+	saveToken(token) // Saves bulletproof token
 
 	user, err := fetchUserInfo(token)
 	if err != nil {
 		return nil, err
 	}
 	CurrentUser = user
+	
 	return user, nil
 }
 
 func TryRestoreSession() {
-	data, err := os.ReadFile(tokenFile)
+	data, err := os.ReadFile(getTokenFilePath())
 	if err != nil {
 		return
 	}
@@ -100,7 +111,7 @@ func TryRestoreSession() {
 	user, err := fetchUserInfo(&token)
 	if err != nil {
 		CurrentToken = nil
-		os.Remove(tokenFile)
+		os.Remove(getTokenFilePath())
 		return
 	}
 	CurrentUser = user
@@ -109,7 +120,7 @@ func TryRestoreSession() {
 func Logout() {
 	CurrentToken = nil
 	CurrentUser = nil
-	os.Remove(tokenFile)
+	os.Remove(getTokenFilePath()) // Delete file on logout
 }
 
 func GetClient() *http.Client {
@@ -133,7 +144,7 @@ func fetchUserInfo(token *oauth2.Token) (*UserInfo, error) {
 
 func saveToken(token *oauth2.Token) {
 	data, _ := json.Marshal(token)
-	os.WriteFile(tokenFile, data, 0600)
+	os.WriteFile(getTokenFilePath(), data, 0600)
 }
 
 func openBrowser(url string) {

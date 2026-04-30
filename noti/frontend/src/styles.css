@@ -1,1 +1,30 @@
 @import "tailwindcss";
+
+.mode-dots {
+  background-image: radial-gradient(#b8a8a8 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.mode-lined {
+  background-image: repeating-linear-gradient(transparent, transparent 31px, #d2c5c5 31px, #d2c5c5 32px);
+  background-attachment: local;
+  background-position: 0 8px; /* Offset slightly from top */
+}
+
+.mode-squares {
+  background-image: linear-gradient(#d2c5c5 1px, transparent 1px),
+                    linear-gradient(90deg, #d2c5c5 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Custom Scrollbar for sleekness */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(135, 92, 92, 0.3);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(135, 92, 92, 0.6);
+}
