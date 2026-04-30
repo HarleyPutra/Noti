@@ -67,7 +67,6 @@ export function Logout() {
 }
 
 /**
- * Restore all active notes when the app starts
  * @param {string} userID
  * @returns {$CancellablePromise<void>}
  */

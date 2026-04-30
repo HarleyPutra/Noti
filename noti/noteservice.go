@@ -14,16 +14,59 @@ import (
 
 type NoteService struct {
 	app           *application.App
-	activeWindows map[string]*application.WebviewWindow // We track windows ourselves
-	mu            sync.Mutex                            // Thread safety for the map
+	activeWindows map[string]*application.WebviewWindow
+	mu            sync.Mutex
 }
 
 func NewNoteService(app *application.App) *NoteService {
-	return &NoteService{
+	s := &NoteService{
 		app:           app,
 		activeWindows: make(map[string]*application.WebviewWindow),
 	}
+	
+	// Start the Background Tracker immediately!
+	go s.positionTracker()
+	
+	return s
 }
+
+// ---------------------------------------------------------
+// THE GHOST TRACKER: Runs silently in the background
+// ---------------------------------------------------------
+func (s *NoteService) positionTracker() {
+	ticker := time.NewTicker(2 * time.Second) // Check every 2 seconds
+	for range ticker.C {
+		// Step 1: Safely grab the current coordinates of all windows
+		type geom struct{ x, y, w, h int }
+		currentGeoms := make(map[string]geom)
+
+		s.mu.Lock()
+		for id, win := range s.activeWindows {
+			if win != nil {
+				x, y := win.Position()
+				w, h := win.Size()
+				currentGeoms[id] = geom{x, y, w, h}
+			}
+		}
+		s.mu.Unlock()
+
+		// Step 2: Compare against the DB and save ONLY if they changed
+		for id, g := range currentGeoms {
+			note, err := db.GetNoteByID(id)
+			if err == nil {
+				if note.PosX != g.x || note.PosY != g.y || note.Width != g.w || note.Height != g.h {
+					note.PosX = g.x
+					note.PosY = g.y
+					note.Width = g.w
+					note.Height = g.h
+					// Silently save the new coordinates
+					db.UpsertNote(*note)
+				}
+			}
+		}
+	}
+}
+// ---------------------------------------------------------
 
 func (s *NoteService) Login() (*auth.UserInfo, error) {
 	return auth.Login()
@@ -50,7 +93,7 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 		Content:     "",
 		Mode:        "list",
 		Color:       "#875c5c",
-		BgColor:     "#e8e0d5", // Your new background color field!
+		BgColor:     "#e8e0d5", 
 		Pinned:      false,
 		Width:       400,
 		Height:      500,
@@ -66,7 +109,6 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 		return nil, err
 	}
 
-	// Spawn window EXACTLY how you had it originally
 	win := s.app.Window.New()
 	win.SetTitle("")
 	win.SetSize(note.Width, note.Height)
@@ -75,7 +117,7 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 	win.SetAlwaysOnTop(note.Pinned)
 	win.SetURL("/?noteId=" + note.ID)
 
-	// Save the window safely into our custom map
+	// Register window for tracking
 	s.mu.Lock()
 	s.activeWindows[note.ID] = win
 	s.mu.Unlock()
@@ -85,27 +127,13 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 }
 
 func (s *NoteService) UpdateNote(note models.Note) error {
-	// THE HIJACK: Grab the real-time position/size right before saving!
-	s.mu.Lock()
-	win, ok := s.activeWindows[note.ID]
-	s.mu.Unlock()
-
-	if ok && win != nil {
-		x, y := win.Position()
-		w, h := win.Size()
-		note.PosX = x
-		note.PosY = y
-		note.Width = w
-		note.Height = h
-	}
-
 	note.UpdatedAt = time.Now().UnixMilli()
 	note.Synced = false
 	return db.UpsertNote(note)
 }
 
 func (s *NoteService) DeleteNote(id string) error {
-	// Remove from our map and close the physical window
+	// Deregister window and physically close it
 	s.mu.Lock()
 	if win, ok := s.activeWindows[id]; ok {
 		win.Close()
@@ -129,7 +157,6 @@ func (s *NoteService) DeleteNote(id string) error {
 }
 
 func (s *NoteService) SetAlwaysOnTop(noteID string, pinned bool) {
-	// Safely get from our custom map
 	s.mu.Lock()
 	win, ok := s.activeWindows[noteID]
 	s.mu.Unlock()
@@ -139,7 +166,6 @@ func (s *NoteService) SetAlwaysOnTop(noteID string, pinned bool) {
 	}
 }
 
-// Restore all active notes when the app starts
 func (s *NoteService) RestoreWindows(userID string) error {
 	notes, err := db.GetNotes(userID)
 	if err != nil {
@@ -155,6 +181,7 @@ func (s *NoteService) RestoreWindows(userID string) error {
 			win.SetAlwaysOnTop(n.Pinned)
 			win.SetURL("/?noteId=" + n.ID)
 
+			// Register window for tracking
 			s.mu.Lock()
 			s.activeWindows[n.ID] = win
 			s.mu.Unlock()
