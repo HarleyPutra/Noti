@@ -41,6 +41,17 @@ export function GetCurrentUser() {
 }
 
 /**
+ * GetNote fetches a single note directly for Angular
+ * @param {string} noteID
+ * @returns {$CancellablePromise<models$0.Note | null>}
+ */
+export function GetNote(noteID) {
+    return $Call.ByID(1276837971, noteID).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
  * @param {string} userID
  * @returns {$CancellablePromise<models$0.Note[]>}
  */

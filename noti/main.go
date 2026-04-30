@@ -15,17 +15,24 @@ import (
 var assets embed.FS
 
 func main() {
-	// Debug log
 	f, _ := os.Create("debug.log")
 	log.SetOutput(f)
 	defer f.Close()
 
 	godotenv.Load()
-	db.Init("./noti.db")
+	
+	// Initialize the JSON File System
+	err := db.InitStore()
+	if err != nil {
+		println("Failed to initialize storage:", err.Error())
+	}
+	
 	auth.Init()
 	auth.TryRestoreSession()
 
-	noteService := &NoteService{}
+	noteService := &NoteService{
+		activeWindows: make(map[string]*application.WebviewWindow),
+	}
 
 	app := application.New(application.Options{
 		Name:        "Noti",
@@ -42,38 +49,26 @@ func main() {
 	})
 
 	noteService.app = app
+	go noteService.positionTracker()
 
-	// Login window — shown first if not authenticated
 	loginWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
-					Title: "Noti",
-					Width: 1024,
-					Height: 768,
-				})
+		Title:  "Noti",
+		Width:  400,
+		Height: 500,
+	})
 	loginWindow.SetTitle("Noti — Sign In")
-	loginWindow.SetSize(400, 500)
 	loginWindow.SetFrameless(false)
 	loginWindow.SetURL("/login")
 	loginWindow.Show()
 
-	// If already logged in, open existing notes immediately
 	if auth.CurrentUser != nil {
 		loginWindow.Hide()
 		notes, _ := db.GetNotes(auth.CurrentUser.ID)
+		
 		if len(notes) == 0 {
-			// First time — create one default note
 			noteService.CreateNote(auth.CurrentUser.ID)
 		} else {
-			for _, n := range notes {
-				app.Window.NewWithOptions(application.WebviewWindowOptions{
-					Title: "Noti",
-					Width: 1024,
-					Height: 768,
-				}).
-					SetFrameless(true).
-					SetAlwaysOnTop(n.Pinned).
-					SetURL("/?noteId=" + n.ID).
-					Show()
-			}
+			noteService.RestoreWindows(auth.CurrentUser.ID)
 		}
 	}
 

@@ -58,20 +58,25 @@ export class NoteComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     const noteId = this.route.snapshot.queryParamMap.get('noteId');
     if (noteId) {
-      const notes = await GoNoteService.GetNotes("");
-      const n = notes.find((n: any) => n.id === noteId);
-      if (n) {
-        this.note.set(n);
+      try {
+        // Fetch EXACTLY this note from the new Go function
+        const n = await GoNoteService.GetNote(noteId);
 
-        // Load content into Tiptap
-        if (n.content) {
-          try {
-            const parsed = JSON.parse(n.content);
-            this.editor.commands.setContent(parsed);
-          } catch {
-            this.editor.commands.setContent(n.content);
+        if (n) {
+          this.note.set(n); // State is no longer null!
+
+          // Load content into Tiptap
+          if (n.content) {
+            try {
+              const parsed = JSON.parse(n.content);
+              this.editor.commands.setContent(parsed);
+            } catch {
+              this.editor.commands.setContent(n.content);
+            }
           }
         }
+      } catch (err) {
+        console.error("Failed to load note data:", err);
       }
     }
   }

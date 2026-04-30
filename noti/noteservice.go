@@ -23,20 +23,14 @@ func NewNoteService(app *application.App) *NoteService {
 		app:           app,
 		activeWindows: make(map[string]*application.WebviewWindow),
 	}
-	
-	// Start the Background Tracker immediately!
+	// Start the Background Tracker
 	go s.positionTracker()
-	
 	return s
 }
 
-// ---------------------------------------------------------
-// THE GHOST TRACKER: Runs silently in the background
-// ---------------------------------------------------------
 func (s *NoteService) positionTracker() {
-	ticker := time.NewTicker(2 * time.Second) // Check every 2 seconds
+	ticker := time.NewTicker(2 * time.Second) 
 	for range ticker.C {
-		// Step 1: Safely grab the current coordinates of all windows
 		type geom struct{ x, y, w, h int }
 		currentGeoms := make(map[string]geom)
 
@@ -50,23 +44,21 @@ func (s *NoteService) positionTracker() {
 		}
 		s.mu.Unlock()
 
-		// Step 2: Compare against the DB and save ONLY if they changed
 		for id, g := range currentGeoms {
 			note, err := db.GetNoteByID(id)
 			if err == nil {
+				// Only write to the JSON file if something actually moved
 				if note.PosX != g.x || note.PosY != g.y || note.Width != g.w || note.Height != g.h {
 					note.PosX = g.x
 					note.PosY = g.y
 					note.Width = g.w
 					note.Height = g.h
-					// Silently save the new coordinates
-					db.UpsertNote(*note)
+					db.UpsertNote(*note) 
 				}
 			}
 		}
 	}
 }
-// ---------------------------------------------------------
 
 func (s *NoteService) Login() (*auth.UserInfo, error) {
 	return auth.Login()
@@ -82,6 +74,11 @@ func (s *NoteService) Logout() {
 
 func (s *NoteService) GetNotes(userID string) ([]models.Note, error) {
 	return db.GetNotes(userID)
+}
+
+// GetNote fetches a single note directly for Angular
+func (s *NoteService) GetNote(noteID string) (*models.Note, error) {
+	return db.GetNoteByID(noteID)
 }
 
 func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
@@ -105,19 +102,23 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 		Version:     1,
 		VectorClock: `{"` + userID + `":1}`,
 	}
+	
+	// Create the JSON file
 	if err := db.UpsertNote(note); err != nil {
 		return nil, err
 	}
 
-	win := s.app.Window.New()
-	win.SetTitle("")
-	win.SetSize(note.Width, note.Height)
-	win.SetPosition(note.PosX, note.PosY)
-	win.SetFrameless(true)
-	win.SetAlwaysOnTop(note.Pinned)
-	win.SetURL("/?noteId=" + note.ID)
+	win := s.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:       "",
+		Width:       note.Width,
+		Height:      note.Height,
+		X:           note.PosX,
+		Y:           note.PosY,
+		Frameless:   true,
+		AlwaysOnTop: note.Pinned,
+		URL:         "/?noteId=" + note.ID,
+	})
 
-	// Register window for tracking
 	s.mu.Lock()
 	s.activeWindows[note.ID] = win
 	s.mu.Unlock()
@@ -127,13 +128,33 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 }
 
 func (s *NoteService) UpdateNote(note models.Note) error {
+	s.mu.Lock()
+	win, ok := s.activeWindows[note.ID]
+	s.mu.Unlock()
+
+	if ok && win != nil {
+		x, y := win.Position()
+		w, h := win.Size()
+		note.PosX = x
+		note.PosY = y
+		note.Width = w
+		note.Height = h
+	} else {
+		existing, err := db.GetNoteByID(note.ID)
+		if err == nil {
+			note.PosX = existing.PosX
+			note.PosY = existing.PosY
+			note.Width = existing.Width
+			note.Height = existing.Height
+		}
+	}
+
 	note.UpdatedAt = time.Now().UnixMilli()
 	note.Synced = false
-	return db.UpsertNote(note)
+	return db.UpsertNote(note) // Saves directly to JSON
 }
 
 func (s *NoteService) DeleteNote(id string) error {
-	// Deregister window and physically close it
 	s.mu.Lock()
 	if win, ok := s.activeWindows[id]; ok {
 		win.Close()
@@ -141,17 +162,14 @@ func (s *NoteService) DeleteNote(id string) error {
 	}
 	s.mu.Unlock()
 
-	notes, err := db.GetNotes("")
-	if err != nil {
-		return err
-	}
-	for _, n := range notes {
-		if n.ID == id {
-			n.Deleted = true
-			n.UpdatedAt = time.Now().UnixMilli()
-			n.Synced = false
-			return db.UpsertNote(n)
-		}
+	note, err := db.GetNoteByID(id)
+	if err == nil {
+		// IMPORTANT: We do not delete the JSON file! We mark it deleted.
+		// If we delete the file, the sync engine won't know to tell Android to delete it too.
+		note.Deleted = true
+		note.UpdatedAt = time.Now().UnixMilli()
+		note.Synced = false
+		return db.UpsertNote(*note)
 	}
 	return nil
 }
@@ -173,15 +191,17 @@ func (s *NoteService) RestoreWindows(userID string) error {
 	}
 	for _, n := range notes {
 		if !n.Deleted {
-			win := s.app.Window.New()
-			win.SetTitle("")
-			win.SetSize(n.Width, n.Height)
-			win.SetPosition(n.PosX, n.PosY)
-			win.SetFrameless(true)
-			win.SetAlwaysOnTop(n.Pinned)
-			win.SetURL("/?noteId=" + n.ID)
+			win := s.app.Window.NewWithOptions(application.WebviewWindowOptions{
+				Title:       "",
+				Width:       n.Width,
+				Height:      n.Height,
+				X:           n.PosX,
+				Y:           n.PosY,
+				Frameless:   true,
+				AlwaysOnTop: n.Pinned,
+				URL:         "/?noteId=" + n.ID,
+			})
 
-			// Register window for tracking
 			s.mu.Lock()
 			s.activeWindows[n.ID] = win
 			s.mu.Unlock()
