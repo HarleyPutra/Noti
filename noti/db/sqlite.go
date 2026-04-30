@@ -28,6 +28,7 @@ func runMigrations() error {
 			content      TEXT DEFAULT '',
 			mode         TEXT DEFAULT 'list',
 			color        TEXT DEFAULT '#6b3f3f',
+			bg_color     TEXT DEFAULT '#e8e0d5',
 			pinned       INTEGER DEFAULT 0,
 			width        INTEGER DEFAULT 400,
 			height       INTEGER DEFAULT 500,
@@ -93,19 +94,19 @@ func UpsertNote(n models.Note) error {
 
 	_, err := DB.Exec(`
 		INSERT INTO notes
-			(id,user_id,title,content,mode,color,pinned,
-			 width,height,pos_x,pos_y,created_at,updated_at,
-			 deleted,synced,version,vector_clock)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			(id, user_id, title, content, mode, color, bg_color, pinned, 
+			 width, height, pos_x, pos_y, created_at, updated_at, 
+			 deleted, synced, version, vector_clock)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET
 			title=excluded.title, content=excluded.content,
-			mode=excluded.mode, color=excluded.color,
+			mode=excluded.mode, color=excluded.color, bg_color=excluded.bg_color,
 			pinned=excluded.pinned, width=excluded.width,
 			height=excluded.height, pos_x=excluded.pos_x,
 			pos_y=excluded.pos_y, updated_at=excluded.updated_at,
 			deleted=excluded.deleted, synced=excluded.synced,
 			version=excluded.version, vector_clock=excluded.vector_clock
-	`, n.ID, n.UserID, n.Title, n.Content, n.Mode, n.Color,
+	`, n.ID, n.UserID, n.Title, n.Content, n.Mode, n.Color, n.BgColor,
 		pinned, n.Width, n.Height, n.PosX, n.PosY,
 		n.CreatedAt, n.UpdatedAt, deleted, synced,
 		n.Version, n.VectorClock,
@@ -164,4 +165,27 @@ func SetLastSyncTime(t int64) {
 		INSERT INTO sync_meta (key,value) VALUES ('last_sync',?)
 		ON CONFLICT(key) DO UPDATE SET value=excluded.value
 	`, fmt.Sprintf("%d", t))
+}
+
+func GetNoteByID(id string) (*models.Note, error) {
+	var n models.Note
+	var pinned, deleted, synced int
+	err := DB.QueryRow(`
+		SELECT id,user_id,title,content,mode,color,bg_color,pinned,
+			   width,height,pos_x,pos_y,created_at,updated_at,
+			   deleted,synced,version,vector_clock
+		FROM notes WHERE id = ?`, id,
+	).Scan(
+		&n.ID, &n.UserID, &n.Title, &n.Content, &n.Mode,
+		&n.Color, &n.BgColor, &pinned, &n.Width, &n.Height,
+		&n.PosX, &n.PosY, &n.CreatedAt, &n.UpdatedAt,
+		&deleted, &synced, &n.Version, &n.VectorClock,
+	)
+	if err != nil {
+		return nil, err
+	}
+	n.Pinned = pinned == 1
+	n.Deleted = deleted == 1
+	n.Synced = synced == 1
+	return &n, nil
 }

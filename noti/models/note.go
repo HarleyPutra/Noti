@@ -5,13 +5,14 @@ type Note struct {
 	UserID      string `json:"user_id"`
 	Title       string `json:"title"`
 	Content     string `json:"content"`
-	Mode        string `json:"mode"`    // list, lined, squares, dots, browse
-	Color       string `json:"color"`   // header color hex
-	Pinned      bool   `json:"pinned"`  // always on top
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
+	Mode        string `json:"mode"`    
+	Color       string `json:"color"`    // Dragbar/Button color
+	BgColor     string `json:"bg_color"` // Content background color
+	Pinned      bool   `json:"pinned"`  
 	PosX        int    `json:"pos_x"`
 	PosY        int    `json:"pos_y"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
 	CreatedAt   int64  `json:"created_at"`
 	UpdatedAt   int64  `json:"updated_at"`
 	Deleted     bool   `json:"deleted"`

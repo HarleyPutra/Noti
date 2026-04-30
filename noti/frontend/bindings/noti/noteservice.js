@@ -67,6 +67,15 @@ export function Logout() {
 }
 
 /**
+ * Restore all active notes when the app starts
+ * @param {string} userID
+ * @returns {$CancellablePromise<void>}
+ */
+export function RestoreWindows(userID) {
+    return $Call.ByID(1823505754, userID);
+}
+
+/**
  * @param {string} noteID
  * @param {boolean} pinned
  * @returns {$CancellablePromise<void>}

@@ -42,7 +42,6 @@ export class Note {
         }
         if (!("mode" in $$source)) {
             /**
-             * list, lined, squares, dots, browse
              * @member
              * @type {string}
              */
@@ -50,33 +49,26 @@ export class Note {
         }
         if (!("color" in $$source)) {
             /**
-             * header color hex
+             * Dragbar/Button color
              * @member
              * @type {string}
              */
             this["color"] = "";
         }
+        if (!("bg_color" in $$source)) {
+            /**
+             * Content background color
+             * @member
+             * @type {string}
+             */
+            this["bg_color"] = "";
+        }
         if (!("pinned" in $$source)) {
             /**
-             * always on top
              * @member
              * @type {boolean}
              */
             this["pinned"] = false;
-        }
-        if (!("width" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["width"] = 0;
-        }
-        if (!("height" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["height"] = 0;
         }
         if (!("pos_x" in $$source)) {
             /**
@@ -91,6 +83,20 @@ export class Note {
              * @type {number}
              */
             this["pos_y"] = 0;
+        }
+        if (!("width" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["width"] = 0;
+        }
+        if (!("height" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["height"] = 0;
         }
         if (!("created_at" in $$source)) {
             /**

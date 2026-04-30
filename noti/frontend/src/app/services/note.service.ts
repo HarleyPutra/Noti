@@ -9,6 +9,7 @@ export interface Note {
   content: string;
   mode: 'list' | 'lined' | 'squares' | 'dots' | 'browse';
   color: string;
+  bg_color: string;
   pinned: boolean;
   width: number;
   height: number;
