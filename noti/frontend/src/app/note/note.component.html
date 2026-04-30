@@ -1,20 +1,18 @@
 <!-- Main Container -->
-<!-- Note: [ngClass] dynamically applies the background pattern based on the note's mode -->
 <div class="w-full h-screen flex flex-col overflow-hidden relative"
      style="background-color: #e8e0d5;"
      [ngClass]="'mode-' + (note()?.mode || 'list')"
      (contextmenu)="onRightClick($event)"
      (click)="closeAll()">
 
-  <!-- Sleek Minimalist Top Bar -->
+  <!-- Sleek Minimalist Top Bar (FIXED DRAGGING) -->
   <div class="flex items-center justify-between px-3 py-1.5 shrink-0 shadow-sm z-10"
-       style="background-color: #875c5c; color: #f2ebe1; -webkit-app-region: drag;">
+       style="background-color: #875c5c; color: #f2ebe1; --wails-draggable: drag; -webkit-app-region: drag; user-select: none;">
 
     <!-- Timer (Hourglass + Time) -->
     <div class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
-         style="-webkit-app-region: no-drag"
+         style="--wails-draggable: no-drag; -webkit-app-region: no-drag;"
          (click)="showTimer.set(true); $event.stopPropagation()">
-      <!-- Hourglass SVG -->
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 22h14"></path><path d="M5 2h14"></path><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
       </svg>
@@ -22,7 +20,7 @@
     </div>
 
     <!-- Right Icons (Settings & Pin) -->
-    <div class="flex items-center gap-3" style="-webkit-app-region: no-drag">
+    <div class="flex items-center gap-3" style="--wails-draggable: no-drag; -webkit-app-region: no-drag;">
       <!-- Gear SVG -->
       <button (click)="showMenu.set(true); $event.stopPropagation()" class="hover:opacity-70 transition-opacity outline-none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -40,44 +38,18 @@
 
   <!-- Editor Body -->
   <div class="flex-1 overflow-y-auto px-5 py-4 text-[#4a3a3a]">
+    <!-- Tiptap Editor -->
+    <tiptap-editor [editor]="editor"></tiptap-editor>
 
-    <!-- Title Input -->
-    <input [value]="note()?.title ?? ''"
-           (input)="note.update(n => n ? {...n, title: $any($event.target).value} : n)"
-           (blur)="save()"
-           class="w-full text-xl font-semibold bg-transparent outline-none mb-4 placeholder-[#4a3a3a]/40"
-           placeholder="Title" />
-
-    <!-- Blocks List -->
-    @for (block of blocks(); track block.id; let i = $index) {
-      <div class="relative flex items-start gap-3 mb-2 group">
-
-        <!-- Figma Checklist Style (Only shows if mode is 'list') -->
-        @if (note()?.mode === 'list') {
-          <button (click)="updateBlock(block.id, {checked: !block.checked}); save()"
-                  class="mt-1 w-4 h-4 rounded-sm border-2 flex items-center justify-center shrink-0 transition-colors"
-                  [ngClass]="block.checked ? 'bg-[#875c5c] border-[#875c5c]' : 'border-[#875c5c] bg-transparent'">
-            @if (block.checked) {
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f2ebe1" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            }
-          </button>
-        }
-
-        <!-- Text Content -->
-        <div [attr.data-block-id]="block.id"
-             contenteditable="true"
-             class="flex-1 outline-none text-[15px] leading-relaxed empty:before:content-['']"
-             [class.line-through]="block.checked && note()?.mode === 'list'"
-             [class.opacity-50]="block.checked && note()?.mode === 'list'"
-             [class.border-b]="note()?.mode === 'list'"
-             [class.border-dashed]="note()?.mode === 'list'"
-             [class.border-[#875c5c]/30]="note()?.mode === 'list'"
-             [textContent]="block.content"
-             (keydown)="onKeydown($event, block)"
-             (input)="onInput($event, block)">
-        </div>
+    <!-- NOTION STYLE FLOATING MENU -->
+    <div tiptapFloatingMenu [editor]="editor">
+      <div class="flex items-center gap-1 p-1 rounded-lg shadow-xl" style="background-color: #2b2323; border: 1px solid #4a3a3a;">
+        <button (mousedown)="$event.preventDefault()" (click)="toggleHeading(1)" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">H1</button>
+        <button (mousedown)="$event.preventDefault()" (click)="toggleHeading(2)" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">H2</button>
+        <button (mousedown)="$event.preventDefault()" (click)="toggleBulletList()" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">• List</button>
+        <button (mousedown)="$event.preventDefault()" (click)="toggleTaskList()" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">☑ Task</button>
       </div>
-    }
+    </div>
   </div>
 
   <!-- Settings / Modes Menu (Matches Figma dark floating panel) -->

@@ -1,110 +1,104 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { NoteService, Note } from '../services/note.service';
+import { TiptapEditorDirective, TiptapFloatingMenuDirective } from 'ngx-tiptap';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import Placeholder from '@tiptap/extension-placeholder';
 
-export interface Block {
-  id: string;
-  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'numbered' | 'checklist' | 'image' | 'divider';
-  content: string;
-  checked?: boolean;
-  imageUrl?: string;
-}
-
-interface Command {
-  type: string;
-  label: string;
-  icon: string;
-}
+import * as GoNoteService from '../../../bindings/noti/noteservice';
 
 @Component({
   selector: 'app-note',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TiptapEditorDirective, TiptapFloatingMenuDirective],
   templateUrl: './note.component.html'
 })
-export class NoteComponent implements OnInit {
-  // Expose JS globals to the Angular template
+export class NoteComponent implements OnInit, OnDestroy {
   Math = Math;
   String = String;
 
-  note = signal<Note | null>(null);
+  note = signal<any | null>(null);
 
-  // -- Editor State --
-  blocks = signal<Block[]>([]);
+  // -- UI State --
   showMenu = signal(false);
-  showSlash = signal(false);
-  showToolbar = signal(false);
-  slashFilter = signal<Command[]>([]);
-
-  commands: Command[] = [
-    { type: 'paragraph', label: 'Text', icon: '¶' },
-    { type: 'h1', label: 'Heading 1', icon: 'H1' },
-    { type: 'h2', label: 'Heading 2', icon: 'H2' },
-    { type: 'h3', label: 'Heading 3', icon: 'H3' },
-    { type: 'bullet', label: 'Bullet List', icon: '•' },
-    { type: 'numbered', label: 'Numbered List', icon: '1.' },
-    { type: 'checklist', label: 'To-do List', icon: '☑' },
-    { type: 'image', label: 'Image', icon: '🖼' },
-    { type: 'divider', label: 'Divider', icon: '―' }
-  ];
+  showTimer = signal(false);
 
   // -- Timer State --
-  showTimer = signal(false);
   timerTotal = 0;
   timerProgress = 0;
   timerInputMin = 25;
   timerInterval: any;
 
-  constructor(
-    private route: ActivatedRoute,
-    private noteService: NoteService
-  ) {}
+  // -- Tiptap Editor --
+  editor = new Editor({
+    extensions: [
+      StarterKit,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Placeholder.configure({
+        placeholder: "Type or select a command...",
+      })
+    ],
+    editorProps: {
+      attributes: {
+        class: 'focus:outline-none min-h-[300px] w-full text-[15px] leading-relaxed',
+      },
+    },
+    onUpdate: () => {
+      this.saveContent();
+    },
+  });
+
+  constructor(private route: ActivatedRoute) {}
 
   async ngOnInit() {
     const noteId = this.route.snapshot.queryParamMap.get('noteId');
     if (noteId) {
-      const n = await this.noteService.getNoteById(noteId);
+      const notes = await GoNoteService.GetNotes("");
+      const n = notes.find((n: any) => n.id === noteId);
       if (n) {
         this.note.set(n);
-        this.parseContent(n.content);
+
+        // Load content into Tiptap
+        if (n.content) {
+          try {
+            const parsed = JSON.parse(n.content);
+            this.editor.commands.setContent(parsed);
+          } catch {
+            this.editor.commands.setContent(n.content);
+          }
+        }
       }
     }
   }
 
-  parseContent(content: string) {
-    try {
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) {
-        this.blocks.set(parsed);
-        return;
-      }
-    } catch {}
-    this.blocks.set([{ id: Date.now().toString(), type: 'paragraph', content: '' }]);
+  ngOnDestroy() {
+    this.editor.destroy();
   }
 
-  async save() {
+  async saveContent() {
     const n = this.note();
     if (!n) return;
+
     const updated = {
       ...n,
-      content: JSON.stringify(this.blocks())
+      content: JSON.stringify(this.editor.getJSON())
     };
-    await this.noteService.updateNote(updated);
-    this.note.set(updated);
+
+    await GoNoteService.UpdateNote(updated);
   }
 
-  async newNote() {
-    await this.noteService.createNote();
-    this.closeAll();
-  }
-
-  async deleteNote() {
+  async setMode(mode: string) {
     const n = this.note();
     if (!n) return;
-    await this.noteService.deleteNote(n.id);
-    window.close();
+    const updated = { ...n, mode };
+    this.note.set(updated);
+    this.showMenu.set(false);
+    await GoNoteService.UpdateNote(updated);
   }
 
   async togglePin() {
@@ -112,38 +106,35 @@ export class NoteComponent implements OnInit {
     if (!n) return;
     const updated = { ...n, pinned: !n.pinned };
     this.note.set(updated);
-    await this.noteService.setAlwaysOnTop(n.id, updated.pinned);
-    await this.noteService.updateNote(updated);
+    await GoNoteService.SetAlwaysOnTop(n.id, updated.pinned);
+    await GoNoteService.UpdateNote(updated);
   }
 
-  // === Block Editor Logic Stub ===
-  onKeydown(event: Event, block: Block) {}
-
-  onInput(event: Event, block: Block) {
-    const target = event.target as HTMLElement;
-    this.updateBlock(block.id, { content: target.textContent || '' });
+  async newNote() {
+    const user = await GoNoteService.GetCurrentUser();
+    if(user) await GoNoteService.CreateNote((user as any).id);
+    this.closeAll();
   }
 
-  updateBlock(id: string, data: Partial<Block>) {
-    this.blocks.update(blocks => blocks.map(b => b.id === id ? { ...b, ...data } : b));
+  async deleteNote() {
+    const n = this.note();
+    if (!n) return;
+    await GoNoteService.DeleteNote(n.id);
+    window.close();
   }
 
-  focusBlock(id: string) {}
-
-  showToolbarFor(id: string) {
-    this.showToolbar.set(true);
+  // === Tiptap Commands ===
+  toggleHeading(level: 1 | 2 | 3) {
+    this.editor.chain().focus().toggleHeading({ level }).run();
   }
 
-  pickSlashCommand(cmd: Command) {
-    this.showSlash.set(false);
+  toggleTaskList() {
+    this.editor.chain().focus().toggleTaskList().run();
   }
 
-  pickToolbarCommand(cmd: Command) {
-    this.showToolbar.set(false);
+  toggleBulletList() {
+    this.editor.chain().focus().toggleBulletList().run();
   }
-
-  onImageDrop(event: Event, block: Block) {}
-  onImageSelect(event: Event, block: Block) {}
 
   // === Timer Logic ===
   get timerDisplay(): string {
@@ -158,24 +149,9 @@ export class NoteComponent implements OnInit {
     this.runTimer();
   }
 
-  toggleCountdown() {
-    if (this.timerInterval) {
-        clearInterval(this.timerInterval);
-        this.timerInterval = null;
-    } else if (this.timerTotal > 0) {
-        this.runTimer();
-    }
-  }
-
-  resetCountdown() {
-    clearInterval(this.timerInterval);
-    this.timerInterval = null;
-    this.timerTotal = 0;
-    this.timerProgress = 0;
-  }
-
   private runTimer() {
     const initial = this.timerTotal;
+    if (this.timerInterval) clearInterval(this.timerInterval);
     this.timerInterval = setInterval(() => {
         if (this.timerTotal > 0) {
             this.timerTotal--;
@@ -187,7 +163,6 @@ export class NoteComponent implements OnInit {
     }, 1000);
   }
 
-  // === General UI ===
   onRightClick(e: MouseEvent) {
     e.preventDefault();
     this.showMenu.set(true);
@@ -195,16 +170,5 @@ export class NoteComponent implements OnInit {
 
   closeAll() {
     this.showMenu.set(false);
-    this.showToolbar.set(false);
-    this.showSlash.set(false);
-  }
-
-  async setMode(mode: 'list' | 'lined' | 'squares' | 'dots' | 'browse') {
-    const n = this.note();
-    if (!n) return;
-    const updated = { ...n, mode };
-    this.note.set(updated);
-    this.showMenu.set(false); // Close menu after clicking
-    await this.noteService.updateNote(updated);
   }
 }

@@ -20,8 +20,15 @@
     "@angular/router": "^21.2.0",
     "@tailwindcss/postcss": "^4.2.4",
     "@tailwindcss/vite": "^4.2.4",
+    "@tiptap/core": "^3.22.5",
+    "@tiptap/extension-placeholder": "^3.22.5",
+    "@tiptap/extension-task-item": "^3.22.5",
+    "@tiptap/extension-task-list": "^3.22.5",
+    "@tiptap/starter-kit": "^3.22.5",
     "@wailsio/runtime": "^3.0.0-alpha.79",
+    "ngx-tiptap": "^14.0.1",
     "rxjs": "~7.8.0",
+    "tippy.js": "^6.3.7",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
