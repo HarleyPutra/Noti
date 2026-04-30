@@ -1,0 +1,340 @@
+<div class="w-full h-screen flex flex-col overflow-hidden"
+     (contextmenu)="onRightClick($event)"
+     (click)="closeAll()">
+
+  <!-- ── Header ── -->
+  <div class="flex items-center justify-between px-3 py-2 shrink-0"
+       style="background:#6b3f3f; -webkit-app-region:drag">
+
+    <!-- Timer -->
+    <div class="flex items-center gap-2" style="-webkit-app-region:no-drag">
+      <span class="text-xs" style="color:#f5e6d3cc">⏱</span>
+      <button class="font-mono text-xs hover:opacity-80 transition-opacity"
+              style="color:#f5e6d3"
+              (click)="timerTotal === 0 ? showTimer.set(true) : toggleCountdown()">
+        {{ timerDisplay }}
+      </button>
+      @if (timerTotal > 0) {
+        <button class="text-xs opacity-50 hover:opacity-100"
+                style="color:#f5e6d3"
+                (click)="resetCountdown()">↺</button>
+      }
+    </div>
+
+    <!-- Right actions -->
+    <div class="flex items-center gap-3" style="-webkit-app-region:no-drag">
+      <button (click)="newNote()" title="New note"
+              class="text-lg leading-none opacity-60 hover:opacity-100 transition-opacity"
+              style="color:#f5e6d3">+</button>
+      <button (click)="togglePin()" title="Pin on top"
+              class="text-xs transition-opacity"
+              [style.opacity]="note()?.pinned ? '1' : '0.5'"
+              style="color:#f5e6d3">📌</button>
+    </div>
+  </div>
+
+  <!-- Timer progress bar -->
+  @if (timerTotal > 0) {
+    <div class="h-0.5 shrink-0" style="background:#3d1f1f">
+      <div class="h-full transition-all duration-1000"
+           style="background:#f5e6d3"
+           [style.width]="timerProgress + '%'"></div>
+    </div>
+  }
+
+  <!-- ── Note title ── -->
+  <div class="px-4 pt-3 pb-1 shrink-0" style="background:#faf3e8">
+    <input
+      [value]="note()?.title ?? ''"
+      (input)="note.update(n => n ? {...n, title: $any($event.target).value} : n)"
+      (blur)="save()"
+      class="w-full text-base font-bold bg-transparent outline-none"
+      style="color:#3d1f1f; font-family:'Georgia',serif"
+      placeholder="Untitled"
+    />
+  </div>
+
+  <!-- ── Editor body ── -->
+  <div class="flex-1 overflow-y-auto px-4 py-2 relative"
+       style="background:#faf3e8">
+
+    @for (block of blocks(); track block.id; let i = $index) {
+      <div class="group relative flex items-start gap-1 mb-0.5">
+
+        <!-- (+) toolbar button -->
+        <button
+          class="opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity shrink-0 mt-0.5 text-sm w-5 h-5 flex items-center justify-center rounded"
+          style="color:#6b3f3f"
+          (click)="$event.stopPropagation(); showToolbarFor(block.id)">+</button>
+
+        <!-- Block content -->
+        <div class="flex-1 min-w-0">
+
+          <!-- Paragraph -->
+          @if (block.type === 'paragraph') {
+            <div
+              [attr.data-block-id]="block.id"
+              contenteditable="true"
+              class="outline-none text-sm leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:opacity-30"
+              style="color:#3d1f1f"
+              data-placeholder="Type '/' for commands..."
+              [textContent]="block.content"
+              (keydown)="onKeydown($event, block)"
+              (input)="onInput($event, block)">
+            </div>
+          }
+
+          <!-- H1 -->
+          @if (block.type === 'h1') {
+            <div
+              [attr.data-block-id]="block.id"
+              contenteditable="true"
+              class="outline-none text-2xl font-bold leading-tight empty:before:content-[attr(data-placeholder)] empty:before:opacity-30"
+              style="color:#3d1f1f; font-family:'Georgia',serif"
+              data-placeholder="Heading 1"
+              [textContent]="block.content"
+              (keydown)="onKeydown($event, block)"
+              (input)="onInput($event, block)">
+            </div>
+          }
+
+          <!-- H2 -->
+          @if (block.type === 'h2') {
+            <div
+              [attr.data-block-id]="block.id"
+              contenteditable="true"
+              class="outline-none text-xl font-semibold leading-tight empty:before:content-[attr(data-placeholder)] empty:before:opacity-30"
+              style="color:#3d1f1f; font-family:'Georgia',serif"
+              data-placeholder="Heading 2"
+              [textContent]="block.content"
+              (keydown)="onKeydown($event, block)"
+              (input)="onInput($event, block)">
+            </div>
+          }
+
+          <!-- H3 -->
+          @if (block.type === 'h3') {
+            <div
+              [attr.data-block-id]="block.id"
+              contenteditable="true"
+              class="outline-none text-base font-semibold leading-tight empty:before:content-[attr(data-placeholder)] empty:before:opacity-30"
+              style="color:#3d1f1f; font-family:'Georgia',serif"
+              data-placeholder="Heading 3"
+              [textContent]="block.content"
+              (keydown)="onKeydown($event, block)"
+              (input)="onInput($event, block)">
+            </div>
+          }
+
+          <!-- Bullet -->
+          @if (block.type === 'bullet') {
+            <div class="flex items-start gap-2">
+              <span class="mt-1.5 shrink-0 text-xs" style="color:#6b3f3f">•</span>
+              <div
+                [attr.data-block-id]="block.id"
+                contenteditable="true"
+                class="flex-1 outline-none text-sm leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:opacity-30"
+                style="color:#3d1f1f"
+                data-placeholder="List item"
+                [textContent]="block.content"
+                (keydown)="onKeydown($event, block)"
+                (input)="onInput($event, block)">
+              </div>
+            </div>
+          }
+
+          <!-- Numbered -->
+          @if (block.type === 'numbered') {
+            <div class="flex items-start gap-2">
+              <span class="mt-0.5 shrink-0 text-sm" style="color:#6b3f3f">
+                {{ i + 1 }}.
+              </span>
+              <div
+                [attr.data-block-id]="block.id"
+                contenteditable="true"
+                class="flex-1 outline-none text-sm leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:opacity-30"
+                style="color:#3d1f1f"
+                data-placeholder="List item"
+                [textContent]="block.content"
+                (keydown)="onKeydown($event, block)"
+                (input)="onInput($event, block)">
+              </div>
+            </div>
+          }
+
+          <!-- Checklist -->
+          @if (block.type === 'checklist') {
+            <div class="flex items-start gap-2">
+              <input type="checkbox"
+                     [checked]="block.checked"
+                     (change)="updateBlock(block.id, {checked: !block.checked}); save()"
+                     class="mt-1 shrink-0 accent-amber-800" />
+              <div
+                [attr.data-block-id]="block.id"
+                contenteditable="true"
+                class="flex-1 outline-none text-sm leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:opacity-30"
+                [class.line-through]="block.checked"
+                [class.opacity-40]="block.checked"
+                style="color:#3d1f1f"
+                data-placeholder="To-do"
+                [textContent]="block.content"
+                (keydown)="onKeydown($event, block)"
+                (input)="onInput($event, block)">
+              </div>
+            </div>
+          }
+
+          <!-- Image -->
+          @if (block.type === 'image') {
+            @if (!block.imageUrl) {
+              <div
+                class="flex flex-col items-center justify-center rounded-lg py-8 cursor-pointer transition-colors"
+                style="border: 2px dashed #c4a882; background:#f5e6d3"
+                (dragover)="$event.preventDefault()"
+                (drop)="onImageDrop($event, block)"
+                (click)="imgInput.click()">
+                <span class="text-2xl mb-1">🖼</span>
+                <span class="text-xs" style="color:#6b3f3f">Drop or click to upload</span>
+                <input #imgInput type="file" accept="image/*" class="hidden"
+                       (change)="onImageSelect($event, block)" />
+              </div>
+            } @else {
+              <div class="relative group/img">
+                <img [src]="block.imageUrl"
+                     class="max-w-full rounded-lg"
+                     style="max-height:300px; object-fit:contain" />
+                <button
+                  (click)="updateBlock(block.id, {imageUrl: undefined}); save()"
+                  class="absolute top-1 right-1 opacity-0 group-hover/img:opacity-100 text-xs px-2 py-1 rounded"
+                  style="background:#2d1515; color:#f5e6d3">✕</button>
+              </div>
+            }
+          }
+
+          <!-- Divider -->
+          @if (block.type === 'divider') {
+            <div class="py-2 cursor-pointer" (click)="focusBlock(block.id)">
+              <hr style="border-color:#c4a882" />
+            </div>
+          }
+
+        </div>
+      </div>
+    }
+
+    <!-- Slash command menu -->
+    @if (showSlash() && slashFilter().length > 0) {
+      <div class="absolute z-40 rounded-xl shadow-xl py-1 min-w-48"
+           style="background:#2d1515; border:1px solid #6b3f3f; left:48px"
+           (click)="$event.stopPropagation()">
+        @for (cmd of slashFilter(); track cmd.type) {
+          <button
+            class="w-full flex items-center gap-3 px-3 py-2 text-sm hover:opacity-70 transition-opacity"
+            style="color:#f5e6d3"
+            (click)="pickSlashCommand(cmd)">
+            <span class="w-6 text-center text-xs opacity-70">{{ cmd.icon }}</span>
+            {{ cmd.label }}
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Toolbar (+) menu -->
+    @if (showToolbar()) {
+      <div class="absolute z-40 rounded-xl shadow-xl py-1 min-w-48"
+           style="background:#2d1515; border:1px solid #6b3f3f; left:28px"
+           (click)="$event.stopPropagation()">
+        @for (cmd of commands; track cmd.type) {
+          <button
+            class="w-full flex items-center gap-3 px-3 py-2 text-sm hover:opacity-70 transition-opacity"
+            style="color:#f5e6d3"
+            (click)="pickToolbarCommand(cmd)">
+            <span class="w-6 text-center text-xs opacity-70">{{ cmd.icon }}</span>
+            {{ cmd.label }}
+          </button>
+        }
+      </div>
+    }
+
+  </div>
+
+  <!-- ── Right-click context menu ── -->
+  @if (showMenu()) {
+    <div class="fixed inset-0 z-50" (click)="closeAll()">
+      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                  rounded-xl shadow-xl py-1 min-w-40"
+           style="background:#2d1515; border:1px solid #6b3f3f"
+           (click)="$event.stopPropagation()">
+        <button class="w-full text-left px-4 py-2 text-sm hover:opacity-70"
+                style="color:#f5e6d3" (click)="newNote()">New Note</button>
+        <button class="w-full text-left px-4 py-2 text-sm hover:opacity-70"
+                style="color:#f5e6d3"
+                (click)="showTimer.set(true); showMenu.set(false)">Set Timer</button>
+        <button class="w-full text-left px-4 py-2 text-sm hover:opacity-70"
+                style="color:#f5e6d3" (click)="togglePin(); showMenu.set(false)">
+          {{ note()?.pinned ? 'Unpin' : 'Pin on top' }}
+        </button>
+        <div style="border-top:1px solid #6b3f3f; margin:4px 0"></div>
+        <button class="w-full text-left px-4 py-2 text-sm hover:opacity-70"
+                style="color:#e07070" (click)="deleteNote()">Delete Note</button>
+      </div>
+    </div>
+  }
+
+  <!-- ── Timer modal ── -->
+  @if (showTimer()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center"
+         style="background:rgba(0,0,0,0.5)"
+         (click)="showTimer.set(false)">
+      <div class="rounded-2xl p-6 w-60"
+           style="background:#2d1515; border:1px solid #6b3f3f"
+           (click)="$event.stopPropagation()">
+
+        <h3 class="text-sm font-semibold mb-5 text-center"
+            style="color:#f5e6d3; font-family:'Georgia',serif">
+          Set Countdown
+        </h3>
+
+        <!-- Minutes display -->
+        <div class="flex items-center justify-center gap-3 mb-6">
+          <button (click)="timerInputMin = Math.max(1, timerInputMin - 1)"
+                  class="w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                  style="background:#1a0f0f; color:#f5e6d3">−</button>
+
+          <div class="text-center">
+            <div class="text-4xl font-mono font-bold" style="color:#f5e6d3">
+              {{ String(timerInputMin).padStart(2, '0') }}
+            </div>
+            <div class="text-xs mt-0.5" style="color:#c4a882">minutes</div>
+          </div>
+
+          <button (click)="timerInputMin = timerInputMin + 1"
+                  class="w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                  style="background:#1a0f0f; color:#f5e6d3">+</button>
+        </div>
+
+        <!-- Quick presets -->
+        <div class="flex gap-2 mb-5">
+          @for (preset of [5, 15, 25, 45]; track preset) {
+            <button (click)="timerInputMin = preset"
+                    class="flex-1 py-1.5 rounded-lg text-xs transition-all"
+                    [style.background]="timerInputMin === preset ? '#6b3f3f' : '#1a0f0f'"
+                    style="color:#f5e6d3">
+              {{ preset }}m
+            </button>
+          }
+        </div>
+
+        <div class="flex gap-2">
+          <button (click)="showTimer.set(false)"
+                  class="flex-1 py-2.5 rounded-xl text-xs"
+                  style="background:#1a0f0f; color:#c4a882">Cancel</button>
+          <button (click)="startCountdown()"
+                  class="flex-1 py-2.5 rounded-xl text-xs font-semibold"
+                  style="background:#6b3f3f; color:#f5e6d3">Start</button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>

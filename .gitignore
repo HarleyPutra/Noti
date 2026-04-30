@@ -5,3 +5,7 @@ desktop/.env
 desktop/token.json
 frontend/android/app/google-services.json
 frontend/capacitor.config.ts
+noti/token.json
+desktopOLD/token.json
+noti/.env
+desktopOLD/.env

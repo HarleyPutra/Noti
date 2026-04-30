@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "572458489581",
+    "project_id": "todo-app-490705",
+    "storage_bucket": "todo-app-490705.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:572458489581:android:3e2ddcd12c2b4cd1821ee4",
+        "android_client_info": {
+          "package_name": "com.bunni.noti"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "572458489581-pcpgp989n9k2v6vcobq0jhe7c8jr5uid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTvpOw2qop4XBcduksSK2ZxK6XSveObqU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "572458489581-pcpgp989n9k2v6vcobq0jhe7c8jr5uid.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

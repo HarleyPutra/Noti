@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A noti application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/noti.exe %u
+Terminal=false
+Type=Application
+Icon=noti.exe
+Categories=Utility;
+StartupWMClass=noti.exe
+
+ 
