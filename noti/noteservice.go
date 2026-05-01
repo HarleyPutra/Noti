@@ -16,6 +16,7 @@ type NoteService struct {
 	app           *application.App
 	activeWindows map[string]*application.WebviewWindow
 	mu            sync.Mutex
+	trackerOnce	  sync.Once
 }
 
 func NewNoteService(app *application.App) *NoteService {
@@ -28,32 +29,67 @@ func NewNoteService(app *application.App) *NoteService {
 	return s
 }
 
+func (s *NoteService) startTrackerSafely() {
+	s.trackerOnce.Do(func() {
+		// 1. The app is officially alive! Angular just connected.
+		// Let's force all restored windows to snap to their saved JSON positions.
+		s.mu.Lock()
+		windowsCopy := make(map[string]*application.WebviewWindow)
+		for id, win := range s.activeWindows {
+			windowsCopy[id] = win
+		}
+		s.mu.Unlock()
+
+		for id, win := range windowsCopy {
+			if note, err := db.GetNoteByID(id); err == nil {
+				application.InvokeSync(func() {
+					win.SetSize(note.Width, note.Height)
+					win.SetPosition(note.PosX, note.PosY)
+				})
+			}
+		}
+
+		// 2. Start the background ghost tracker
+		go s.positionTracker()
+	})
+}
+
 func (s *NoteService) positionTracker() {
-	ticker := time.NewTicker(2 * time.Second) 
+	ticker := time.NewTicker(2 * time.Second)
 	for range ticker.C {
 		type geom struct{ x, y, w, h int }
 		currentGeoms := make(map[string]geom)
 
+		windowsCopy := make(map[string]*application.WebviewWindow)
 		s.mu.Lock()
 		for id, win := range s.activeWindows {
-			if win != nil {
-				x, y := win.Position()
-				w, h := win.Size()
-				currentGeoms[id] = geom{x, y, w, h}
-			}
+			windowsCopy[id] = win
 		}
 		s.mu.Unlock()
 
+		for id, win := range windowsCopy {
+			if win != nil {
+				application.InvokeSync(func() {
+					x, y := win.Position()
+					w, h := win.Size()
+					currentGeoms[id] = geom{x, y, w, h}
+				})
+			}
+		}
+
+		// 3. Save to JSON if anything actually moved
 		for id, g := range currentGeoms {
-			note, err := db.GetNoteByID(id)
-			if err == nil {
-				// Only write to the JSON file if something actually moved
-				if note.PosX != g.x || note.PosY != g.y || note.Width != g.w || note.Height != g.h {
-					note.PosX = g.x
-					note.PosY = g.y
-					note.Width = g.w
-					note.Height = g.h
-					db.UpsertNote(*note) 
+			// Prevent saving 0,0 if the window was closed during the check
+			if g.w > 0 && g.h > 0 {
+				note, err := db.GetNoteByID(id)
+				if err == nil {
+					if note.PosX != g.x || note.PosY != g.y || note.Width != g.w || note.Height != g.h {
+						note.PosX = g.x
+						note.PosY = g.y
+						note.Width = g.w
+						note.Height = g.h
+						db.UpsertNote(*note)
+					}
 				}
 			}
 		}
@@ -73,15 +109,19 @@ func (s *NoteService) Logout() {
 }
 
 func (s *NoteService) GetNotes(userID string) ([]models.Note, error) {
+	s.startTrackerSafely()
 	return db.GetNotes(userID)
 }
 
 // GetNote fetches a single note directly for Angular
 func (s *NoteService) GetNote(noteID string) (*models.Note, error) {
+	s.startTrackerSafely()
 	return db.GetNoteByID(noteID)
 }
 
 func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
+	s.startTrackerSafely() // Wake up tracker
+
 	now := time.Now().UnixMilli()
 	note := models.Note{
 		ID:          uuid.New().String(),
@@ -90,7 +130,7 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 		Content:     "",
 		Mode:        "list",
 		Color:       "#875c5c",
-		BgColor:     "#e8e0d5", 
+		BgColor:     "#e8e0d5",
 		Pinned:      false,
 		Width:       400,
 		Height:      500,
@@ -102,8 +142,7 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 		Version:     1,
 		VectorClock: `{"` + userID + `":1}`,
 	}
-	
-	// Create the JSON file
+
 	if err := db.UpsertNote(note); err != nil {
 		return nil, err
 	}
@@ -124,6 +163,13 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 	s.mu.Unlock()
 
 	win.Show()
+
+	// Safe to do instantly, because Angular triggered this function.
+	application.InvokeSync(func() {
+		win.SetSize(note.Width, note.Height)
+		win.SetPosition(note.PosX, note.PosY)
+	})
+
 	return &note, nil
 }
 
@@ -133,13 +179,21 @@ func (s *NoteService) UpdateNote(note models.Note) error {
 	s.mu.Unlock()
 
 	if ok && win != nil {
-		x, y := win.Position()
-		w, h := win.Size()
-		note.PosX = x
-		note.PosY = y
-		note.Width = w
-		note.Height = h
+		// Override Angular's stale coordinates with the live window coordinates
+		application.InvokeSync(func() {
+			x, y := win.Position()
+			w, h := win.Size()
+			
+			// Only apply if Windows gave us real numbers
+			if w > 0 && h > 0 {
+				note.PosX = x
+				note.PosY = y
+				note.Width = w
+				note.Height = h
+			}
+		})
 	} else {
+		// Fallback: If the window is missing, grab the last known position from JSON
 		existing, err := db.GetNoteByID(note.ID)
 		if err == nil {
 			note.PosX = existing.PosX
@@ -151,7 +205,7 @@ func (s *NoteService) UpdateNote(note models.Note) error {
 
 	note.UpdatedAt = time.Now().UnixMilli()
 	note.Synced = false
-	return db.UpsertNote(note) // Saves directly to JSON
+	return db.UpsertNote(note)
 }
 
 func (s *NoteService) DeleteNote(id string) error {
@@ -189,6 +243,7 @@ func (s *NoteService) RestoreWindows(userID string) error {
 	if err != nil {
 		return err
 	}
+
 	for _, n := range notes {
 		if !n.Deleted {
 			win := s.app.Window.NewWithOptions(application.WebviewWindowOptions{

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -26,6 +26,7 @@ export class NoteComponent implements OnInit, OnDestroy {
   // -- UI State --
   showMenu = signal(false);
   showTimer = signal(false);
+  isSaving = false; // Controls the sync icon in your HTML top-bar
 
   // -- Timer State --
   timerTotal = 0;
@@ -85,16 +86,37 @@ export class NoteComponent implements OnInit, OnDestroy {
     this.editor.destroy();
   }
 
+  // Intercepts the app closing (Alt+F4, hitting the X) to save the final keystrokes
+  @HostListener('window:beforeunload')
+  flushSaveOnClose() {
+    const n = this.note();
+    if (n) {
+      const updated = {
+        ...n,
+        content: JSON.stringify(this.editor.getJSON())
+      };
+      // Fire and forget: send the final state to Go synchronously before the window dies
+      GoNoteService.UpdateNote(updated);
+    }
+  }
+
   async saveContent() {
     const n = this.note();
     if (!n) return;
+
+    this.isSaving = true; // Spin the sync icon
 
     const updated = {
       ...n,
       content: JSON.stringify(this.editor.getJSON())
     };
 
-    await GoNoteService.UpdateNote(updated);
+    try {
+      await GoNoteService.UpdateNote(updated);
+    } finally {
+      // Add a slight delay so the user actually sees the saving animation happen
+      setTimeout(() => this.isSaving = false, 400);
+    }
   }
 
   async setMode(mode: string) {
@@ -103,7 +125,10 @@ export class NoteComponent implements OnInit, OnDestroy {
     const updated = { ...n, mode };
     this.note.set(updated);
     this.showMenu.set(false);
+
+    this.isSaving = true;
     await GoNoteService.UpdateNote(updated);
+    setTimeout(() => this.isSaving = false, 400);
   }
 
   async togglePin() {
@@ -112,7 +137,10 @@ export class NoteComponent implements OnInit, OnDestroy {
     const updated = { ...n, pinned: !n.pinned };
     this.note.set(updated);
     await GoNoteService.SetAlwaysOnTop(n.id, updated.pinned);
+
+    this.isSaving = true;
     await GoNoteService.UpdateNote(updated);
+    setTimeout(() => this.isSaving = false, 400);
   }
 
   async newNote() {

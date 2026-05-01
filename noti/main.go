@@ -49,7 +49,6 @@ func main() {
 	})
 
 	noteService.app = app
-	go noteService.positionTracker()
 
 	loginWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:  "Noti",
