@@ -119,6 +119,23 @@ export class NoteComponent implements OnInit, OnDestroy {
     }
   }
 
+  async forceSync() {
+    this.isSaving = true; // This will spin your UI sync icon!
+    try {
+      const user = await GoNoteService.GetCurrentUser();
+      if (user && (user as any).id) {
+        // Calls the SyncNow function we built earlier in noteservice.go
+        await GoNoteService.SyncNow((user as any).id);
+        console.log("Sync complete!");
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+    } finally {
+      // Give it a tiny delay so it feels satisfying to the user
+      setTimeout(() => this.isSaving = false, 500);
+    }
+  }
+
   async setMode(mode: string) {
     const n = this.note();
     if (!n) return;
