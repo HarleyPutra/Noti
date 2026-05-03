@@ -246,7 +246,23 @@ func (s *NoteService) RestoreWindows(userID string) error {
 
 	for _, n := range notes {
 		if !n.Deleted {
-			win := s.app.Window.NewWithOptions(application.WebviewWindowOptions{
+			s.mu.Lock()
+			win, exists := s.activeWindows[n.ID]
+			s.mu.Unlock()
+
+			if exists && win != nil {
+				// 1. The window already exists! (It was just hidden).
+				// Show it, and force it back to its exact saved coordinates.
+				application.InvokeSync(func() {
+					win.Show()
+					win.SetSize(n.Width, n.Height)
+					win.SetPosition(n.PosX, n.PosY)
+				})
+				continue // Skip the rest of the loop so we don't duplicate it!
+			}
+
+			// 2. The window doesn't exist yet, so let's create it.
+			win = s.app.Window.NewWithOptions(application.WebviewWindowOptions{
 				Title:       "",
 				Width:       n.Width,
 				Height:      n.Height,
@@ -262,6 +278,12 @@ func (s *NoteService) RestoreWindows(userID string) error {
 			s.mu.Unlock()
 
 			win.Show()
+
+			// 3. Force Windows OS to obey the coordinates instantly
+			application.InvokeSync(func() {
+				win.SetSize(n.Width, n.Height)
+				win.SetPosition(n.PosX, n.PosY)
+			})
 		}
 	}
 	return nil
@@ -280,4 +302,18 @@ func (s *NoteService) SyncNow(userID string) error {
 		}
 	}
 	return gosync.Push(userID)
+}
+
+// HideWindow turns the window invisible instead of killing the Angular process.
+// This allows it to instantly reappear later without recompiling the UI.
+func (s *NoteService) HideWindow(noteID string) {
+	s.mu.Lock()
+	win, ok := s.activeWindows[noteID]
+	s.mu.Unlock()
+
+	if ok && win != nil {
+		application.InvokeSync(func() {
+			win.Hide()
+		})
+	}
 }

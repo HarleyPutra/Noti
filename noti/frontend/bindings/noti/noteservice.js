@@ -62,6 +62,16 @@ export function GetNotes(userID) {
 }
 
 /**
+ * HideWindow turns the window invisible instead of killing the Angular process.
+ * This allows it to instantly reappear later without recompiling the UI.
+ * @param {string} noteID
+ * @returns {$CancellablePromise<void>}
+ */
+export function HideWindow(noteID) {
+    return $Call.ByID(2934523945, noteID);
+}
+
+/**
  * @returns {$CancellablePromise<auth$0.UserInfo | null>}
  */
 export function Login() {
