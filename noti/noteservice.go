@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 type NoteService struct {
@@ -156,6 +157,13 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 		Frameless:   true,
 		AlwaysOnTop: note.Pinned,
 		URL:         "/?noteId=" + note.ID,
+	})
+
+	// If the user force-closes the window (Alt+F4 or Taskbar), delete the dead pointer
+	win.OnWindowEvent(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		s.mu.Lock()
+		delete(s.activeWindows, note.ID)
+		s.mu.Unlock()
 	})
 
 	s.mu.Lock()

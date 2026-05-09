@@ -26,7 +26,7 @@ export class NoteComponent implements OnInit, OnDestroy {
   // -- UI State --
   showMenu = signal(false);
   showTimer = signal(false);
-  isSaving = false; // Controls the sync icon in your HTML top-bar
+  isSaving = false;
 
   // -- Timer State --
   timerTotal = 0;
@@ -60,13 +60,9 @@ export class NoteComponent implements OnInit, OnDestroy {
     const noteId = this.route.snapshot.queryParamMap.get('noteId');
     if (noteId) {
       try {
-        // Fetch EXACTLY this note from the new Go function
         const n = await GoNoteService.GetNote(noteId);
-
         if (n) {
-          this.note.set(n); // State is no longer null!
-
-          // Load content into Tiptap
+          this.note.set(n);
           if (n.content) {
             try {
               const parsed = JSON.parse(n.content);
@@ -86,7 +82,6 @@ export class NoteComponent implements OnInit, OnDestroy {
     this.editor.destroy();
   }
 
-  // Intercepts the app closing (Alt+F4, hitting the X) to save the final keystrokes
   @HostListener('window:beforeunload')
   flushSaveOnClose() {
     const n = this.note();
@@ -95,7 +90,6 @@ export class NoteComponent implements OnInit, OnDestroy {
         ...n,
         content: JSON.stringify(this.editor.getJSON())
       };
-      // Fire and forget: send the final state to Go synchronously before the window dies
       GoNoteService.UpdateNote(updated);
     }
   }
@@ -104,7 +98,7 @@ export class NoteComponent implements OnInit, OnDestroy {
     const n = this.note();
     if (!n) return;
 
-    this.isSaving = true; // Spin the sync icon
+    this.isSaving = true;
 
     const updated = {
       ...n,
@@ -114,38 +108,58 @@ export class NoteComponent implements OnInit, OnDestroy {
     try {
       await GoNoteService.UpdateNote(updated);
     } finally {
-      // Add a slight delay so the user actually sees the saving animation happen
       setTimeout(() => this.isSaving = false, 400);
     }
   }
 
   async forceSync() {
-    this.isSaving = true; // This will spin your UI sync icon!
+    this.isSaving = true;
     try {
       const user = await GoNoteService.GetCurrentUser();
       if (user && (user as any).id) {
-        // Calls the SyncNow function we built earlier in noteservice.go
         await GoNoteService.SyncNow((user as any).id);
         console.log("Sync complete!");
       }
     } catch (err) {
       console.error("Sync failed:", err);
     } finally {
-      // Give it a tiny delay so it feels satisfying to the user
       setTimeout(() => this.isSaving = false, 500);
     }
   }
 
-  async setMode(mode: string) {
+  // === UI Customization ===
+  setMode(newMode: string) {
+    this.note.update(n => n ? { ...n, mode: newMode } : n);
+    this.showMenu.set(false);
+    this.saveContent();
+  }
+
+  setColor(newColor: string) {
+    this.note.update(n => n ? { ...n, color: newColor } : n);
+    this.showMenu.set(false);
+    this.saveContent();
+  }
+
+  // === Note Window Management ===
+  async newNote() {
+    const user = await GoNoteService.GetCurrentUser();
+    if(user) await GoNoteService.CreateNote((user as any).id);
+    this.closeAll();
+  }
+
+  async deleteNote() {
     const n = this.note();
     if (!n) return;
-    const updated = { ...n, mode };
-    this.note.set(updated);
-    this.showMenu.set(false);
+    await GoNoteService.DeleteNote(n.id);
+    // Hide it instead of destroying it to play nice with our System Tray architecture
+    GoNoteService.HideWindow(n.id);
+  }
 
-    this.isSaving = true;
-    await GoNoteService.UpdateNote(updated);
-    setTimeout(() => this.isSaving = false, 400);
+  closeNote() {
+    const n = this.note();
+    if (n && n.id) {
+      GoNoteService.HideWindow(n.id);
+    }
   }
 
   async togglePin() {
@@ -158,19 +172,6 @@ export class NoteComponent implements OnInit, OnDestroy {
     this.isSaving = true;
     await GoNoteService.UpdateNote(updated);
     setTimeout(() => this.isSaving = false, 400);
-  }
-
-  async newNote() {
-    const user = await GoNoteService.GetCurrentUser();
-    if(user) await GoNoteService.CreateNote((user as any).id);
-    this.closeAll();
-  }
-
-  async deleteNote() {
-    const n = this.note();
-    if (!n) return;
-    await GoNoteService.DeleteNote(n.id);
-    window.close();
   }
 
   // === Tiptap Commands ===

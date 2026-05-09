@@ -44,6 +44,12 @@
           <line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.43l-3.41-1.71a2 2 0 0 1-1.11-1.43V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v6.67a2 2 0 0 1-1.11 1.43l-3.41 1.71A2 2 0 0 0 5 15.24Z"></path>
         </svg>
       </button>
+      <!-- Close Note -->
+      <button (click)="closeNote()" class="hover:opacity-100 transition-opacity outline-none">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -83,6 +89,18 @@
       </div>
 
       <div class="border-t border-[#4a3a3a] my-1"></div>
+      <!-- Color Picker -->
+      <div class="px-3 py-1.5 text-xs text-center font-semibold tracking-wider text-[#a38c8c] border-b border-[#4a3a3a] mb-2 mt-1 uppercase">Colors</div>
+      <div class="px-3 flex flex-wrap justify-between gap-2 mb-3">
+        <!-- Pastel Yellow -->
+        <button (click)="setColor('#f9f5e8')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #f9f5e8;"></button>
+        <!-- Pastel Pink -->
+        <button (click)="setColor('#fbe3e3')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #fbe3e3;"></button>
+        <!-- Pastel Blue -->
+        <button (click)="setColor('#e3f0fb')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #e3f0fb;"></button>
+        <!-- Pastel Green -->
+        <button (click)="setColor('#e3fbe6')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #e3fbe6;"></button>
+      </div>
       <button class="w-full text-left px-4 py-1.5 hover:bg-[#4a3a3a]/50" (click)="newNote()">New Note</button>
       <button class="w-full text-left px-4 py-1.5 hover:bg-[#4a3a3a]/50 text-red-400" (click)="deleteNote()">Delete</button>
     </div>
