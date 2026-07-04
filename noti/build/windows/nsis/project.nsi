@@ -34,6 +34,8 @@ Unicode true
 ####
 !include "wails_tools.nsh"
 
+SetCompressor /SOLID lzma
+
 # The version information for this two must consist of 4 parts
 VIProductVersion "${INFO_PRODUCTVERSION}.0"
 VIFileVersion    "${INFO_PRODUCTVERSION}.0"
