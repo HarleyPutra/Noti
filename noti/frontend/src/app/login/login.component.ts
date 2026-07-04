@@ -1,6 +1,9 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
 import { NoteService } from '../services/note.service';
+
+import { Window } from '@wailsio/runtime';
+import * as GoAuth from '@bindings/noti/auth';
+import * as GoNoteService from '@bindings/noti/noteservice';
 
 @Component({
   selector: 'app-login',
@@ -43,15 +46,22 @@ export class LoginComponent {
   loading = false;
   error = '';
 
-  constructor(private noteService: NoteService, private router: Router) {}
+  constructor(private noteService: NoteService) {}
 
   async login() {
     this.loading = true;
     this.error = '';
+
     try {
-      await this.noteService.login();
-      this.router.navigate(['/']);
+      const user = await GoNoteService.Login();
+
+      if (user && user.id) {
+        await GoNoteService.RestoreWindows(user.id);
+
+        Window.Close();
+      }
     } catch (e: any) {
+      console.error(e);
       this.error = 'Login failed. Please try again.';
     } finally {
       this.loading = false;

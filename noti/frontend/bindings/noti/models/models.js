@@ -49,19 +49,17 @@ export class Note {
         }
         if (!("color" in $$source)) {
             /**
-             * Dragbar/Button color
              * @member
              * @type {string}
              */
             this["color"] = "";
         }
-        if (!("bg_color" in $$source)) {
+        if (!("bgColor" in $$source)) {
             /**
-             * Content background color
              * @member
              * @type {string}
              */
-            this["bg_color"] = "";
+            this["bgColor"] = "";
         }
         if (!("pinned" in $$source)) {
             /**
@@ -139,6 +137,13 @@ export class Note {
              * @type {string}
              */
             this["vector_clock"] = "";
+        }
+        if (!("timerDeadline" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["timerDeadline"] = 0;
         }
 
         Object.assign(this, $$source);

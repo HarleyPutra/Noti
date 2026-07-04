@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"log"
@@ -11,21 +12,38 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events" // We need this for the startup event!
+	"github.com/wailsapp/wails/v3/pkg/events"
 	"golang.design/x/hotkey"
 )
 
-//go:embed all:frontend/dist
+//go:embed frontend/dist
 var assets embed.FS
+//go:embed .env
+var envText string
+
 
 func main() {
-	f, _ := os.Create("debug.log")
-	log.SetOutput(f)
-	defer f.Close()
+	fmt.Println("--- DEBUG: ENV FILE LENGTH ---", len(envText))
 
-	godotenv.Load()
+	envMap, err := godotenv.Unmarshal(envText)
+	if err != nil {
+		// If it crashes, scream loudly in the terminal
+		fmt.Println("--- CRITICAL ENV ERROR ---:", err)
+	} else {
+		for key, value := range envMap {
+			os.Setenv(key, value)
+		}
+		// Prove that it made it into the system environment
+		fmt.Println("--- DEBUG: LOADED CLIENT ID ---", os.Getenv("GOOGLE_CLIENT_ID"))
+	}
 
-	// Initialize the JSON File System
+	configDir, _ := os.UserConfigDir()
+    appDir := configDir + "/Noti"
+    os.MkdirAll(appDir, os.ModePerm)
+    f, _ := os.OpenFile(appDir+"/debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+    log.SetOutput(f)
+    defer f.Close()
+
 	if err := db.InitStore(); err != nil {
 		log.Println("Failed to initialize storage:", err.Error())
 	}
@@ -35,6 +53,7 @@ func main() {
 
 	noteService := &NoteService{
 		activeWindows: make(map[string]*application.WebviewWindow),
+		activeTimers:  make(map[string]context.CancelFunc), // <-- ADD THIS LINE!
 	}
 
 	app := application.New(application.Options{
@@ -47,7 +66,6 @@ func main() {
 			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
-			// CRITICAL: Set to false so the tray daemon stays alive when all notes are hidden
 			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
 	})
@@ -55,7 +73,6 @@ func main() {
 	noteService.app = app
 	startGlobalHotkey(noteService)
 
-	// SYSTEM TRAY SETUP
 	tray := app.SystemTray.New()
 	menu := app.NewMenu()
 
@@ -79,20 +96,17 @@ func main() {
 
 	tray.SetMenu(menu)
 
-	// LIFECYCLE: ON STARTUP
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(e *application.ApplicationEvent) {
 		if auth.CurrentUser == nil {
-			// User is NOT logged in: Only spawn the Login Window
 			loginWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
 				Title:     "Noti — Sign In",
 				Width:     400,
 				Height:    500,
-				URL:       "/login",
+				URL:       "/#/login",
 				Frameless: false,
 			})
 			loginWindow.Show()
 		} else {
-			// User IS logged in: Spawn the notes safely
 			notes, _ := db.GetNotes(auth.CurrentUser.ID)
 			if len(notes) == 0 {
 				noteService.CreateNote(auth.CurrentUser.ID)
@@ -102,7 +116,24 @@ func main() {
 		}
 	})
 
-	// Start the engine
+	app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name: "ContextMenu",
+		URL: "/#/menu", 
+		Frameless: true,
+		AlwaysOnTop: true,
+		Hidden: true,
+		Width: 230,
+		Height: 400, 
+		
+		BackgroundType: application.BackgroundTypeTransparent, 
+		
+		BackgroundColour: application.NewRGBA(0, 0, 0, 0), 
+
+		Windows: application.WindowsWindow{
+			HiddenOnTaskbar: true, 
+		},
+	})
+
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -110,18 +141,14 @@ func main() {
 
 func startGlobalHotkey(noteService *NoteService) {
 	go func() {
-		// Register Ctrl + Alt + N
 		hk := hotkey.New([]hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt}, hotkey.KeyN)
 		err := hk.Register()
 		if err != nil {
 			fmt.Println("Hotkey registration failed:", err)
 			return
 		}
-
-		// Infinite loop listening for the hotkey
 		for range hk.Keydown() {
 			if auth.CurrentUser != nil {
-				// Spawn a new note safely on the main thread
 				application.InvokeSync(func() {
 					noteService.CreateNote(auth.CurrentUser.ID)
 				})

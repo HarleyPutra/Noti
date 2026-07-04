@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"noti/auth"
 	"noti/db"
 	"noti/models"
@@ -15,25 +16,29 @@ import (
 
 type NoteService struct {
 	app           *application.App
+	TargetNoteID  string
 	activeWindows map[string]*application.WebviewWindow
 	mu            sync.Mutex
-	trackerOnce	  sync.Once
+	trackerOnce   sync.Once
+
+	activeTimers map[string]context.CancelFunc
+	timerMu      sync.Mutex
+	lastMenuTime time.Time
 }
 
 func NewNoteService(app *application.App) *NoteService {
 	s := &NoteService{
 		app:           app,
 		activeWindows: make(map[string]*application.WebviewWindow),
+		activeTimers:  make(map[string]context.CancelFunc),
 	}
-	// Start the Background Tracker
 	go s.positionTracker()
+	s.StartBackgroundSync()
 	return s
 }
 
 func (s *NoteService) startTrackerSafely() {
 	s.trackerOnce.Do(func() {
-		// 1. The app is officially alive! Angular just connected.
-		// Let's force all restored windows to snap to their saved JSON positions.
 		s.mu.Lock()
 		windowsCopy := make(map[string]*application.WebviewWindow)
 		for id, win := range s.activeWindows {
@@ -50,7 +55,6 @@ func (s *NoteService) startTrackerSafely() {
 			}
 		}
 
-		// 2. Start the background ghost tracker
 		go s.positionTracker()
 	})
 }
@@ -78,9 +82,7 @@ func (s *NoteService) positionTracker() {
 			}
 		}
 
-		// 3. Save to JSON if anything actually moved
 		for id, g := range currentGeoms {
-			// Prevent saving 0,0 if the window was closed during the check
 			if g.w > 0 && g.h > 0 {
 				note, err := db.GetNoteByID(id)
 				if err == nil {
@@ -97,7 +99,7 @@ func (s *NoteService) positionTracker() {
 	}
 }
 
-func (s *NoteService) Login() (*auth.UserInfo, error) {
+func (n *NoteService) Login() (*auth.UserInfo, error) {
 	return auth.Login()
 }
 
@@ -105,8 +107,22 @@ func (s *NoteService) GetCurrentUser() *auth.UserInfo {
 	return auth.CurrentUser
 }
 
-func (s *NoteService) Logout() {
+func (n *NoteService) Logout() {
 	auth.Logout()
+
+	for id, window := range n.activeWindows {
+		window.Close()
+		delete(n.activeWindows, id)
+	}
+
+	loginWindow := n.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:     "Noti — Sign In",
+		Width:     400,
+		Height:    500,
+		URL:       "/#/login",
+		Frameless: false,
+	})
+	loginWindow.Show()
 }
 
 func (s *NoteService) GetNotes(userID string) ([]models.Note, error) {
@@ -114,14 +130,13 @@ func (s *NoteService) GetNotes(userID string) ([]models.Note, error) {
 	return db.GetNotes(userID)
 }
 
-// GetNote fetches a single note directly for Angular
 func (s *NoteService) GetNote(noteID string) (*models.Note, error) {
 	s.startTrackerSafely()
 	return db.GetNoteByID(noteID)
 }
 
 func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
-	s.startTrackerSafely() // Wake up tracker
+	s.startTrackerSafely()
 
 	now := time.Now().UnixMilli()
 	note := models.Note{
@@ -156,10 +171,10 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 		Y:           note.PosY,
 		Frameless:   true,
 		AlwaysOnTop: note.Pinned,
-		URL:         "/?noteId=" + note.ID,
+		URL:         "/#/?noteId=" + note.ID,
 	})
 
-	// If the user force-closes the window (Alt+F4 or Taskbar), delete the dead pointer
+	// THIS is what the Find & Replace accidentally broke! It's fixed now.
 	win.OnWindowEvent(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		s.mu.Lock()
 		delete(s.activeWindows, note.ID)
@@ -172,7 +187,6 @@ func (s *NoteService) CreateNote(userID string) (*models.Note, error) {
 
 	win.Show()
 
-	// Safe to do instantly, because Angular triggered this function.
 	application.InvokeSync(func() {
 		win.SetSize(note.Width, note.Height)
 		win.SetPosition(note.PosX, note.PosY)
@@ -187,12 +201,10 @@ func (s *NoteService) UpdateNote(note models.Note) error {
 	s.mu.Unlock()
 
 	if ok && win != nil {
-		// Override Angular's stale coordinates with the live window coordinates
 		application.InvokeSync(func() {
 			x, y := win.Position()
 			w, h := win.Size()
-			
-			// Only apply if Windows gave us real numbers
+
 			if w > 0 && h > 0 {
 				note.PosX = x
 				note.PosY = y
@@ -201,7 +213,6 @@ func (s *NoteService) UpdateNote(note models.Note) error {
 			}
 		})
 	} else {
-		// Fallback: If the window is missing, grab the last known position from JSON
 		existing, err := db.GetNoteByID(note.ID)
 		if err == nil {
 			note.PosX = existing.PosX
@@ -226,8 +237,6 @@ func (s *NoteService) DeleteNote(id string) error {
 
 	note, err := db.GetNoteByID(id)
 	if err == nil {
-		// IMPORTANT: We do not delete the JSON file! We mark it deleted.
-		// If we delete the file, the sync engine won't know to tell Android to delete it too.
 		note.Deleted = true
 		note.UpdatedAt = time.Now().UnixMilli()
 		note.Synced = false
@@ -259,17 +268,14 @@ func (s *NoteService) RestoreWindows(userID string) error {
 			s.mu.Unlock()
 
 			if exists && win != nil {
-				// 1. The window already exists! (It was just hidden).
-				// Show it, and force it back to its exact saved coordinates.
 				application.InvokeSync(func() {
 					win.Show()
 					win.SetSize(n.Width, n.Height)
 					win.SetPosition(n.PosX, n.PosY)
 				})
-				continue // Skip the rest of the loop so we don't duplicate it!
+				continue
 			}
 
-			// 2. The window doesn't exist yet, so let's create it.
 			win = s.app.Window.NewWithOptions(application.WebviewWindowOptions{
 				Title:       "",
 				Width:       n.Width,
@@ -278,7 +284,7 @@ func (s *NoteService) RestoreWindows(userID string) error {
 				Y:           n.PosY,
 				Frameless:   true,
 				AlwaysOnTop: n.Pinned,
-				URL:         "/?noteId=" + n.ID,
+				URL:         "/#/?noteId=" + n.ID,
 			})
 
 			s.mu.Lock()
@@ -287,7 +293,6 @@ func (s *NoteService) RestoreWindows(userID string) error {
 
 			win.Show()
 
-			// 3. Force Windows OS to obey the coordinates instantly
 			application.InvokeSync(func() {
 				win.SetSize(n.Width, n.Height)
 				win.SetPosition(n.PosX, n.PosY)
@@ -297,23 +302,6 @@ func (s *NoteService) RestoreWindows(userID string) error {
 	return nil
 }
 
-func (s *NoteService) SyncNow(userID string) error {
-	remote, err := gosync.Pull()
-	if err != nil {
-		return err
-	}
-	if len(remote) > 0 {
-		local, _ := db.GetNotes(userID)
-		merged := gosync.MergeNotes(local, remote)
-		for _, n := range merged {
-			db.UpsertNote(n)
-		}
-	}
-	return gosync.Push(userID)
-}
-
-// HideWindow turns the window invisible instead of killing the Angular process.
-// This allows it to instantly reappear later without recompiling the UI.
 func (s *NoteService) HideWindow(noteID string) {
 	s.mu.Lock()
 	win, ok := s.activeWindows[noteID]
@@ -324,4 +312,210 @@ func (s *NoteService) HideWindow(noteID string) {
 			win.Hide()
 		})
 	}
+}
+
+func (s *NoteService) StartTimer(noteID string, minutes int) {
+	s.timerMu.Lock()
+	if cancel, exists := s.activeTimers[noteID]; exists {
+		cancel()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.activeTimers[noteID] = cancel
+	s.timerMu.Unlock()
+
+	totalSeconds := minutes * 60
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				totalSeconds--
+
+				s.app.Event.Emit("timer-tick-"+noteID, totalSeconds)
+
+				if totalSeconds <= 0 {
+					s.timerMu.Lock()
+					delete(s.activeTimers, noteID)
+					s.timerMu.Unlock()
+					return
+				}
+			}
+		}
+	}()
+}
+
+func (s *NoteService) StopTimer(noteID string) {
+	s.timerMu.Lock()
+	defer s.timerMu.Unlock()
+
+	if cancel, exists := s.activeTimers[noteID]; exists {
+		cancel()
+		delete(s.activeTimers, noteID)
+	}
+}
+
+func (s *NoteService) ShowContextMenu(x int, y int, noteID string) {
+	s.mu.Lock()
+	s.lastMenuTime = time.Now()
+	s.mu.Unlock()
+
+	s.TargetNoteID = noteID
+	windows := s.app.Window.GetAll()
+	for _, win := range windows {
+		if win.Name() == "ContextMenu" {
+			win.SetPosition(x, y)
+			win.Show()
+			win.Focus()
+			s.app.Event.Emit("menu-opened")
+			break
+		}
+	}
+}
+
+func (s *NoteService) HideContextMenu() {
+	s.mu.Lock()
+	if time.Since(s.lastMenuTime) < 150*time.Millisecond {
+		s.mu.Unlock()
+		return
+	}
+	s.mu.Unlock()
+
+	windows := s.app.Window.GetAll()
+	for _, win := range windows {
+		if win.Name() == "ContextMenu" {
+			win.Hide()
+			break
+		}
+	}
+}
+
+// Dynamically resizes the context menu to eliminate empty space!
+func (s *NoteService) ResizeContextMenu(width int, height int) {
+	windows := s.app.Window.GetAll()
+	for _, win := range windows {
+		if win.Name() == "ContextMenu" {
+			win.SetSize(width, height)
+			break
+		}
+	}
+}
+
+// Routes actions from the Ghost Window safely to the Main Note
+func (s *NoteService) TriggerMenuAction(actionType string, actionValue string) {
+	// Include the target ID as the 3rd argument in the Wails event array!
+	s.app.Event.Emit("menu-action", actionType, actionValue, s.TargetNoteID)
+
+	windows := s.app.Window.GetAll()
+	for _, win := range windows {
+		if win.Name() == "ContextMenu" {
+			win.Hide()
+			break
+		}
+	}
+}
+
+// Debug Tool: Scans the DB and purges corrupted/empty ghost notes
+func (s *NoteService) PruneArtifactNotes() (int, error) {
+	deletedCount := 0
+
+	// 1. Figure out who is currently logged in
+	user := s.GetCurrentUser()
+	if user == nil {
+		return 0, nil // If nobody is logged in, there's nothing to prune
+	}
+
+	// 2. Fetch only their notes
+	allNotes, err := s.GetNotes(user.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	// 3. Scan for and destroy the artifacts
+	for _, note := range allNotes {
+		// Identify artifacts: empty content, pure whitespace, or broken JSON brackets
+		if note.Content == "" || note.Content == "{}" || note.Content == "null" {
+			s.DeleteNote(note.ID)
+			deletedCount++
+		}
+	}
+
+	return deletedCount, nil
+}
+
+// StartBackgroundSync runs invisibly in the background, pushing changes to Google Drive
+func (s *NoteService) StartBackgroundSync() {
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			user := s.GetCurrentUser()
+			if user == nil {
+				continue // Nobody logged in, skip sync
+			}
+
+			// 1. Check if there are any pending mutations
+			queue, err := db.GetSyncQueue()
+			if err != nil || len(queue) == 0 {
+				continue // Nothing to do
+			}
+
+			// 2. Trigger the actual sync process
+			// Note: because it's in a Goroutine, it will not freeze the Angular frontend while waiting for Google Drive
+			err = s.SyncNow(user.ID)
+			
+			// 3. If the network didn't fail and Google Drive accepted it, clear the queue!
+			if err == nil {
+				for _, event := range queue {
+					db.ClearFromQueue(event.ID)
+					db.MarkSynced(event.NoteID)
+				}
+			} else {
+				// If network fails it stays in the SQLite queue and 
+				// we will try again in exactly 30 seconds.
+				println("Background Sync Delayed (Network/Drive Error): ", err.Error())
+			}
+		}
+	}()
+}
+
+func (s *NoteService) SyncNow(userID string) error {
+	// 1. "The Hands" pull from Google Drive
+	remoteNotes, err := gosync.Pull()
+	if err != nil {
+		return err // Network failure, background worker will try again later!
+	}
+
+	// 2. "The Hands" pull from SQLite
+	localNotes, err := db.GetNotes(userID)
+	if err != nil {
+		return err
+	}
+
+	// 3. "The Brain" runs the Vector Clock math!
+	finalMergedNotes := gosync.MergeNotes(localNotes, remoteNotes)
+
+	// 4. "The Hands" save the mathematically perfect results back to SQLite
+	for _, n := range finalMergedNotes {
+		n.Synced = true // Everything in this list is about to go to the cloud
+		db.UpsertNote(n) 
+	}
+
+	// 5. "The Hands" upload the perfect list back to Google Drive
+	if len(finalMergedNotes) > 0 {
+		err = gosync.Push(userID, finalMergedNotes) 
+		if err != nil {
+			return err
+		}
+	}
+
+	// 6. Tell the Angular UI to stop spinning!
+	s.app.Event.Emit("sync-complete")
+
+	return nil
 }

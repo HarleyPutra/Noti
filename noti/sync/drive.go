@@ -45,31 +45,39 @@ func Pull() ([]models.Note, error) {
 	return notes, nil
 }
 
-func Push(userID string) error {
+// Push now accepts the exact list of mathematically merged notes to upload
+func Push(userID string, notesToPush []models.Note) error {
 	svc, err := getSvc()
 	if err != nil {
 		return err
 	}
-	notes, err := db.GetNotes(userID)
+
+	// 1. Marshal the exact payload handed to us by the conflict resolver
+	data, err := json.Marshal(notesToPush)
 	if err != nil {
 		return err
 	}
-	data, _ := json.Marshal(notes)
+
+	// 2. Upload to Google Drive
 	fileID, _ := getFileID(svc)
 	if fileID == "" {
-		svc.Files.Create(&drive.File{
+		_, err = svc.Files.Create(&drive.File{
 			Name:    driveFileName,
 			Parents: []string{"appDataFolder"},
 		}).Media(strings.NewReader(string(data))).Do()
 	} else {
-		svc.Files.Update(fileID, &drive.File{}).
+		_, err = svc.Files.Update(fileID, &drive.File{}).
 			Media(strings.NewReader(string(data))).Do()
 	}
-	unsynced, _ := db.GetUnsynced(userID)
-	for _, n := range unsynced {
-		db.MarkSynced(n.ID)
+
+	// If the network failed during upload, return the error so the queue tries again later
+	if err != nil {
+		return err
 	}
+
+	// 3. Record the exact time of successful sync
 	db.SetLastSyncTime(time.Now().UnixMilli())
+	
 	return nil
 }
 

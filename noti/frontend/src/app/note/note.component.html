@@ -1,51 +1,49 @@
-<!-- Main Container -->
 <div class="w-full h-screen flex flex-col overflow-hidden relative"
-     style="background-color: #e8e0d5;"
+     [style.background-color]="note()?.color || '#e8e0d5'"
      [ngClass]="'mode-' + (note()?.mode || 'list')"
      (contextmenu)="onRightClick($event)"
      (click)="closeAll()">
 
-  <!-- Sleek Minimalist Top Bar (FIXED DRAGGING) -->
-  <div class="flex items-center justify-between px-3 py-1.5 shrink-0 shadow-sm z-10"
-       style="background-color: #875c5c; color: #f2ebe1; --wails-draggable: drag; -webkit-app-region: drag; user-select: none;">
+  <div class="flex items-center justify-between px-3 py-1.5 shrink-0 shadow-sm z-10 group"
+        [style.background-color]="note()?.accentColor || '#4a3a3a'"
+        style="color: #f2ebe1; --wails-draggable: drag; user-select: none;">
 
-    <!-- Timer (Hourglass + Time) -->
     <div class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
-         style="--wails-draggable: no-drag; -webkit-app-region: no-drag;"
+         style="--wails-draggable: no-drag;"
          (click)="showTimer.set(true); $event.stopPropagation()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M5 22h14"></path><path d="M5 2h14"></path><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-70 hover:opacity-100 transition-opacity cursor-pointer">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
       </svg>
       <span class="text-sm font-semibold tracking-widest">{{ timerDisplay }}</span>
     </div>
 
-    <!-- Right Icons (Settings & Pin) -->
-    <div class="flex items-center gap-3" style="--wails-draggable: no-drag; -webkit-app-region: no-drag;">
-      <!-- Sync Status Button -->
+    <div class="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity" style="--wails-draggable: no-drag;">
+
       <button class="sync-status hover:opacity-70 transition-opacity outline-none"
               (click)="forceSync(); $event.stopPropagation()"
               title="Force Sync to Google Drive">
-        <svg *ngIf="isSaving" class="spin-icon" viewBox="0 0 24 24" width="16" height="16">
+        <svg *ngIf="isSaving" class="spin-icon animate-spin" viewBox="0 0 24 24" width="16" height="16">
           <path fill="currentColor" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
         </svg>
         <svg *ngIf="!isSaving" class="check-icon" viewBox="0 0 24 24" width="16" height="16">
           <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
         </svg>
       </button>
-      <!-- Gear SVG -->
-      <button (click)="showMenu.set(true); $event.stopPropagation()" class="hover:opacity-70 transition-opacity outline-none">
+
+      <button (click)="onRightClick($event)" class="hover:opacity-70 transition-opacity outline-none" title="Settings">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
       </button>
-      <!-- Pin SVG -->
-      <button (click)="togglePin()" [style.opacity]="note()?.pinned ? '1' : '0.5'" class="hover:opacity-100 transition-opacity outline-none">
+
+      <button (click)="togglePin()" [style.opacity]="note()?.pinned ? '1' : '0.5'" class="hover:opacity-100 transition-opacity outline-none" title="Pin Note">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.43l-3.41-1.71a2 2 0 0 1-1.11-1.43V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v6.67a2 2 0 0 1-1.11 1.43l-3.41 1.71A2 2 0 0 0 5 15.24Z"></path>
         </svg>
       </button>
-      <!-- Close Note -->
-      <button (click)="closeNote()" class="hover:opacity-100 transition-opacity outline-none">
+
+      <button (click)="closeNote()" class="hover:text-red-300 transition-colors outline-none" title="Hide Note">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
@@ -53,70 +51,44 @@
     </div>
   </div>
 
-  <!-- Editor Body -->
   <div class="flex-1 overflow-y-auto px-5 py-4 text-[#4a3a3a]">
-    <!-- Tiptap Editor -->
     <tiptap-editor [editor]="editor"></tiptap-editor>
-
-    <!-- NOTION STYLE FLOATING MENU -->
-    <div tiptapFloatingMenu [editor]="editor">
-      <div class="flex items-center gap-1 p-1 rounded-lg shadow-xl" style="background-color: #2b2323; border: 1px solid #4a3a3a;">
-        <button (mousedown)="$event.preventDefault()" (click)="toggleHeading(1)" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">H1</button>
-        <button (mousedown)="$event.preventDefault()" (click)="toggleHeading(2)" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">H2</button>
-        <button (mousedown)="$event.preventDefault()" (click)="toggleBulletList()" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">• List</button>
-        <button (mousedown)="$event.preventDefault()" (click)="toggleTaskList()" class="px-2 py-1 text-xs text-[#e8e0d5] hover:bg-[#4a3a3a] rounded transition-colors">☑ Task</button>
-      </div>
-    </div>
   </div>
 
-  <!-- Settings / Modes Menu (Matches Figma dark floating panel) -->
-  @if (showMenu()) {
-    <div class="absolute top-10 right-3 z-50 w-36 rounded-lg shadow-xl py-2 flex flex-col text-sm"
-         style="background-color: #2b2323; color: #e8e0d5; border: 1px solid #4a3a3a;"
-         (click)="$event.stopPropagation()">
-      <div class="px-3 py-1.5 text-xs text-center font-semibold tracking-wider text-[#a38c8c] border-b border-[#4a3a3a] mb-2 uppercase">Modes</div>
-
-      <!-- Pill Buttons for modes -->
-      <div class="px-3 flex flex-col gap-2 mb-2">
-        <div class="flex gap-2">
-          <button (click)="setMode('list')" [class.bg-[#875c5c]]="note()?.mode === 'list'" class="flex-1 border border-[#875c5c] rounded-full py-1 text-xs hover:bg-[#875c5c]/50 transition-colors">List</button>
-          <button (click)="setMode('lined')" [class.bg-[#875c5c]]="note()?.mode === 'lined'" class="flex-1 border border-[#875c5c] rounded-full py-1 text-xs hover:bg-[#875c5c]/50 transition-colors">Lined</button>
-        </div>
-        <div class="flex gap-2">
-          <button (click)="setMode('squares')" [class.bg-[#875c5c]]="note()?.mode === 'squares'" class="flex-1 border border-[#875c5c] rounded-full py-1 text-xs hover:bg-[#875c5c]/50 transition-colors">Squares</button>
-          <button (click)="setMode('dots')" [class.bg-[#875c5c]]="note()?.mode === 'dots'" class="flex-1 border border-[#875c5c] rounded-full py-1 text-xs hover:bg-[#875c5c]/50 transition-colors">Dots</button>
-        </div>
-      </div>
-
-      <div class="border-t border-[#4a3a3a] my-1"></div>
-      <!-- Color Picker -->
-      <div class="px-3 py-1.5 text-xs text-center font-semibold tracking-wider text-[#a38c8c] border-b border-[#4a3a3a] mb-2 mt-1 uppercase">Colors</div>
-      <div class="px-3 flex flex-wrap justify-between gap-2 mb-3">
-        <!-- Pastel Yellow -->
-        <button (click)="setColor('#f9f5e8')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #f9f5e8;"></button>
-        <!-- Pastel Pink -->
-        <button (click)="setColor('#fbe3e3')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #fbe3e3;"></button>
-        <!-- Pastel Blue -->
-        <button (click)="setColor('#e3f0fb')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #e3f0fb;"></button>
-        <!-- Pastel Green -->
-        <button (click)="setColor('#e3fbe6')" class="w-6 h-6 rounded-full border border-black/20 hover:scale-110 transition-transform" style="background-color: #e3fbe6;"></button>
-      </div>
-      <button class="w-full text-left px-4 py-1.5 hover:bg-[#4a3a3a]/50" (click)="newNote()">New Note</button>
-      <button class="w-full text-left px-4 py-1.5 hover:bg-[#4a3a3a]/50 text-red-400" (click)="deleteNote()">Delete</button>
-    </div>
-  }
-
-  <!-- Timer Modal (Matches Figma exactly) -->
   @if (showTimer()) {
     <div class="absolute top-10 left-3 z-50 w-44 rounded-lg shadow-xl py-3 flex flex-col"
          style="background-color: #e8e0d5; border: 1px solid #cbbdbd;"
          (click)="$event.stopPropagation()">
-      <div class="text-center text-xs font-semibold text-[#f2ebe1] uppercase tracking-wider py-1 mx-3 rounded" style="background-color: #875c5c;">Minutes</div>
+
+      <div class="text-center text-xs font-semibold text-[#f2ebe1] uppercase tracking-wider py-1 mx-3 rounded" style="background-color: #875c5c;">Timer (Hr : Min)</div>
 
       <div class="flex justify-center items-center py-4 text-3xl font-light text-[#4a3a3a] tracking-widest">
-        <input type="number" [(ngModel)]="timerInputMin" class="w-16 bg-transparent text-right outline-none hide-arrows" />
-        <span class="mx-1">:</span>
-        <span class="w-16 text-left">00</span>
+
+        <input
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="2"
+          [(ngModel)]="inputHr"
+          (blur)="formatInput('hr')"
+          (input)="onHrInput($event, minInput)"
+          (keypress)="($event.charCode >= 48 && $event.charCode <= 57)"
+          class="w-16 bg-transparent text-right outline-none border-none p-0 focus:ring-0 appearance-none selection:bg-[#875c5c]/20"
+        >
+
+        <span class="mx-1 mb-1">:</span>
+
+        <input
+          #minInput
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="2"
+          [(ngModel)]="inputMin"
+          (blur)="formatInput('min')"
+          (keypress)="($event.charCode >= 48 && $event.charCode <= 57)"
+          class="w-16 bg-transparent text-left outline-none border-none p-0 focus:ring-0 appearance-none selection:bg-[#875c5c]/20"
+        >
       </div>
 
       <div class="flex justify-center gap-2 px-3">

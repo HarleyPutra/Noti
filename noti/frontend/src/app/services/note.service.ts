@@ -9,7 +9,7 @@ export interface Note {
   content: string;
   mode: 'list' | 'lined' | 'squares' | 'dots' | 'browse';
   color: string;
-  bg_color: string;
+  bgColor: string;
   pinned: boolean;
   width: number;
   height: number;
@@ -21,6 +21,7 @@ export interface Note {
   synced: boolean;
   version: number;
   vector_clock: string;
+  timerDeadline: number;
 }
 
 export interface User {

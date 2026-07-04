@@ -6,8 +6,8 @@ type Note struct {
 	Title       string `json:"title"`
 	Content     string `json:"content"`
 	Mode        string `json:"mode"`    
-	Color       string `json:"color"`    // Dragbar/Button color
-	BgColor     string `json:"bg_color"` // Content background color
+	Color   	string `json:"color"`
+    BgColor 	string `json:"bgColor"`
 	Pinned      bool   `json:"pinned"`  
 	PosX        int    `json:"pos_x"`
 	PosY        int    `json:"pos_y"`
@@ -19,6 +19,7 @@ type Note struct {
 	Synced      bool   `json:"synced"`
 	Version     int    `json:"version"`
 	VectorClock string `json:"vector_clock"`
+	TimerDeadline int64 `json:"timerDeadline"`
 }
 
 type TimerState struct {

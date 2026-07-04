@@ -61,36 +61,41 @@ func GetNoteByID(id string) (*models.Note, error) {
 	return &note, nil
 }
 
-// GetNotes scans the folder and loads every JSON file into memory
+// GetNotes scans the folder and loads every JSON file into memory for a specific user
 func GetNotes(userID string) ([]models.Note, error) {
-	fileMu.RLock()
-	defer fileMu.RUnlock()
+    fileMu.RLock()
+    defer fileMu.RUnlock()
 
-	var notes []models.Note
+    var notes []models.Note
 
-	files, err := os.ReadDir(NotesDir)
-	if err != nil {
-		return notes, err
-	}
+    files, err := os.ReadDir(NotesDir)
+    if err != nil {
+        return notes, err
+    }
 
-	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".json" {
-			data, err := os.ReadFile(filepath.Join(NotesDir, file.Name()))
-			if err != nil {
-				continue
-			}
+    for _, file := range files {
+        // 1. Skip the sync metadata file explicitly!
+        if file.Name() == "sync_meta.json" {
+            continue
+        }
 
-			var note models.Note
-			if err := json.Unmarshal(data, &note); err == nil {
-				// We still respect the "Deleted" flag for sync purposes!
-				if !note.Deleted {
-					notes = append(notes, note)
-				}
-			}
-		}
-	}
+        if filepath.Ext(file.Name()) == ".json" {
+            data, err := os.ReadFile(filepath.Join(NotesDir, file.Name()))
+            if err != nil {
+                continue
+            }
 
-	return notes, nil
+            var note models.Note
+            if err := json.Unmarshal(data, &note); err == nil {
+                // 2. Ensure the note belongs to the active user AND isn't soft-deleted
+                if note.UserID == userID && !note.Deleted {
+                    notes = append(notes, note)
+                }
+            }
+        }
+    }
+
+    return notes, nil
 }
 
 // GetUnsynced returns all notes that haven't been pushed to Google Drive yet
@@ -152,4 +157,13 @@ func SetLastSyncTime(t int64) {
 		filePath := filepath.Join(NotesDir, "sync_meta.json")
 		os.WriteFile(filePath, data, 0644)
 	}
+}
+
+// PermanentDelete physically wipes the JSON file from the hard drive
+func PermanentDelete(id string) error {
+    fileMu.Lock()
+    defer fileMu.Unlock()
+
+    filePath := filepath.Join(NotesDir, id+".json")
+    return os.Remove(filePath)
 }

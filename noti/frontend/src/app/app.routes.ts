@@ -10,5 +10,10 @@ export const routes: Routes = [
     path: '',
     loadComponent: () =>
       import('./note/note.component').then(m => m.NoteComponent)
+  },
+  {
+    path: 'menu',
+    loadComponent: () =>
+      import('./menu/menu.component').then(m => m.MenuComponent)
   }
 ];

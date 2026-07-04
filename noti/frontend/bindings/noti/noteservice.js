@@ -41,7 +41,6 @@ export function GetCurrentUser() {
 }
 
 /**
- * GetNote fetches a single note directly for Angular
  * @param {string} noteID
  * @returns {$CancellablePromise<models$0.Note | null>}
  */
@@ -62,8 +61,13 @@ export function GetNotes(userID) {
 }
 
 /**
- * HideWindow turns the window invisible instead of killing the Angular process.
- * This allows it to instantly reappear later without recompiling the UI.
+ * @returns {$CancellablePromise<void>}
+ */
+export function HideContextMenu() {
+    return $Call.ByID(2665593831);
+}
+
+/**
  * @param {string} noteID
  * @returns {$CancellablePromise<void>}
  */
@@ -88,6 +92,24 @@ export function Logout() {
 }
 
 /**
+ * Debug Tool: Scans the DB and purges corrupted/empty ghost notes
+ * @returns {$CancellablePromise<number>}
+ */
+export function PruneArtifactNotes() {
+    return $Call.ByID(1999058466);
+}
+
+/**
+ * Dynamically resizes the context menu to eliminate empty space!
+ * @param {number} width
+ * @param {number} height
+ * @returns {$CancellablePromise<void>}
+ */
+export function ResizeContextMenu(width, height) {
+    return $Call.ByID(2235249483, width, height);
+}
+
+/**
  * @param {string} userID
  * @returns {$CancellablePromise<void>}
  */
@@ -105,11 +127,56 @@ export function SetAlwaysOnTop(noteID, pinned) {
 }
 
 /**
+ * @param {number} x
+ * @param {number} y
+ * @param {string} noteID
+ * @returns {$CancellablePromise<void>}
+ */
+export function ShowContextMenu(x, y, noteID) {
+    return $Call.ByID(2525673100, x, y, noteID);
+}
+
+/**
+ * StartBackgroundSync runs invisibly in the background, pushing changes to Google Drive
+ * @returns {$CancellablePromise<void>}
+ */
+export function StartBackgroundSync() {
+    return $Call.ByID(1955202504);
+}
+
+/**
+ * @param {string} noteID
+ * @param {number} minutes
+ * @returns {$CancellablePromise<void>}
+ */
+export function StartTimer(noteID, minutes) {
+    return $Call.ByID(2853819752, noteID, minutes);
+}
+
+/**
+ * @param {string} noteID
+ * @returns {$CancellablePromise<void>}
+ */
+export function StopTimer(noteID) {
+    return $Call.ByID(1342101790, noteID);
+}
+
+/**
  * @param {string} userID
  * @returns {$CancellablePromise<void>}
  */
 export function SyncNow(userID) {
     return $Call.ByID(1584298638, userID);
+}
+
+/**
+ * Routes actions from the Ghost Window safely to the Main Note
+ * @param {string} actionType
+ * @param {string} actionValue
+ * @returns {$CancellablePromise<void>}
+ */
+export function TriggerMenuAction(actionType, actionValue) {
+    return $Call.ByID(2316814594, actionType, actionValue);
 }
 
 /**

@@ -3,7 +3,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./out-tsc/app",
+    "outDir": "./dist/out-tsc",
+    "paths": {
+      "@bindings/*": ["./bindings/*"]
+    },
     "types": []
   },
   "include": [
