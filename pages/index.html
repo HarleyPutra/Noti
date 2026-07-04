@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noti - Desktop Productivity App</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --text-color: #0f172a;
+            --card-bg: #ffffff;
+            --primary-color: #3b82f6;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: #64748b;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #1e293b;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .highlight {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            color: #64748b;
+        }
+
+        footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            margin: 0 10px;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Noti</h1>
+            <div class="subtitle">Your Desktop Productivity Hub</div>
+        </header>
+
+        <main>
+            <section class="card">
+                <h2>What is Noti?</h2>
+                <p>Noti is a lightweight, high-performance desktop application designed to streamline your daily workflow. It provides users with a clean interface to manage their tasks and ideas efficiently without the clutter of traditional web apps.</p>
+                <p><strong>Core Features:</strong></p>
+                <ul>
+                    <li><strong>Notes:</strong> Create, edit, and organize your daily notes.</li>
+                    <li><strong>Stickers:</strong> Pin important reminders to your dashboard.</li>
+                    <li><strong>Timers:</strong> Manage your productivity sessions with built-in task timers.</li>
+                </ul>
+            </section>
+
+			<section class="card">
+                <h2>Google Drive Sync & Privacy</h2>
+                <p>To ensure your notes, stickers, and timers are always backed up and available across your devices, <strong>Noti requires a Google Account to function</strong>. Your data is automatically synchronized using your personal Google Drive rather than a third-party server.</p>
+                
+                <div class="highlight">
+                    <strong>How the Google Drive Sync Works:</strong><br>
+                    Upon logging in, Noti requests access to a hidden, application-specific folder inside your Google Drive (known as the <code>appData folder</code>). It securely and automatically syncs your local SQLite database directly to this private folder in the background.
+                </div>
+
+                <p><strong>What this means for your privacy:</strong></p>
+                <ul>
+                    <li><strong>No Central Servers:</strong> Your data travels directly between the Noti app on your device and your Google Account. We do not own, operate, or route your data through any developer servers.</li>
+                    <li><strong>Strictly Isolated Access:</strong> Because Noti only requests access to its specific Application Data folder, it is physically impossible for the app to see, read, or modify your personal documents, photos, or other Google Drive files.</li>
+                    <li><strong>Zero Data Harvesting:</strong> We do not collect, read, or sell your notes, tasks, or usage metrics. Your data belongs entirely to you.</li>
+                </ul>
+            </section>
+        </main>
+
+        <footer>
+            <p>
+                <!-- Update these links to point directly to the files in your repo -->
+                <a href="https://github.com/HarleyPutra/Noti/blob/main/PRIVACY.md" target="_blank">Privacy Policy</a> | 
+                <a href="https://github.com/HarleyPutra/Noti/blob/main/TERMS.md" target="_blank">Terms of Service</a> | 
+                <a href="https://github.com/HarleyPutra/Noti" target="_blank">View on GitHub</a>
+            </p>
+            <p>&copy; 2026 Noti</p>
+        </footer>
+    </div>
+
+</body>
+</html>
